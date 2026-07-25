@@ -241,14 +241,28 @@ export class App {
       ];
     }
     const report = await buildReport(rows, user.displayCurrency, this.d.fx);
-    const lines = report.byGroup.map(
-      (g) => `  ${g.label}: ${Money.ofMinor(g.amountMinor, report.targetCurrency).format()}`,
-    );
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: user.timezone,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    const MAX = 30;
+    const lines = report.entries
+      .slice(0, MAX)
+      .map(
+        (e) =>
+          `${fmt.format(new Date(e.at))} · ${e.label} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
+      );
+    if (report.entries.length > MAX) {
+      lines.push(`…and ${report.entries.length - MAX} more (use Export for the full list)`);
+    }
     const total = Money.ofMinor(report.totalMinor, report.targetCurrency).format();
     return [
       {
         kind: 'buttons',
-        text: `📊 ${range.from} … ${range.to} (${report.targetCurrency})\n${lines.join('\n')}\n\nTotal: ${total}`,
+        text: `📊 ${range.from} … ${range.to} (${report.targetCurrency})\n\n${lines.join('\n')}\n\nTotal: ${total}`,
         rows: [
           [
             { label: '📤 Export this', action: `export:${range.from}:${range.to}` },
