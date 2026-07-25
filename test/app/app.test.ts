@@ -116,4 +116,16 @@ describe('App end-to-end', () => {
     const allowed = await app.handle(ref, 'coffee 5');
     expect(textOf(allowed[0]!)).toContain('Logged');
   });
+
+  it('sets currency and timezone deterministically', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, '/currency EUR');
+    await app.handle(ref, '/timezone Europe/Berlin');
+    const settings = await app.handle(ref, '/settings');
+    expect(textOf(settings[0]!)).toContain('EUR');
+    expect(textOf(settings[0]!)).toContain('Europe/Berlin');
+
+    const bad = await app.handle(ref, '/timezone Nowhere/Fake');
+    expect(textOf(bad[0]!)).toContain('Usage');
+  });
 });

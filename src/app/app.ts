@@ -34,6 +34,8 @@ const HELP =
   '  /report [last month | this month | today | YYYY-MM-DD YYYY-MM-DD]\n' +
   '  /export [same ranges]\n' +
   '  /settings — show your currency & timezone\n' +
+  '  /currency USD — set your currency\n' +
+  '  /timezone Europe/Berlin — set your timezone\n' +
   '  /forget — delete all your data\n' +
   '  yes / no — confirm or cancel a pending entry';
 
@@ -112,6 +114,10 @@ export class App {
               `Timezone: ${user.timezone}`,
           },
         ];
+      case '/currency':
+        return this.setCurrency(userId, arg);
+      case '/timezone':
+        return this.setTimezone(userId, arg);
       case '/report':
         return this.report(userId, user, arg);
       case '/export':
@@ -160,6 +166,24 @@ export class App {
         caption: `${rows.length} expenses, ${range.from}…${range.to}`,
       },
     ];
+  }
+
+  private async setCurrency(userId: number, arg: string): Promise<Reply[]> {
+    const code = arg.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) return [{ kind: 'text', text: 'Usage: /currency USD' }];
+    this.d.users.updateSettings(userId, { defaultCurrency: code, displayCurrency: code });
+    return [{ kind: 'text', text: `Currency set to ${code}.` }];
+  }
+
+  private async setTimezone(userId: number, arg: string): Promise<Reply[]> {
+    const tz = arg.trim();
+    try {
+      new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+    } catch {
+      return [{ kind: 'text', text: 'Usage: /timezone Europe/Berlin (an IANA time zone)' }];
+    }
+    this.d.users.updateSettings(userId, { timezone: tz });
+    return [{ kind: 'text', text: `Timezone set to ${tz}.` }];
   }
 
   private async forget(userId: number, arg: string): Promise<Reply[]> {
