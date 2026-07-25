@@ -368,7 +368,14 @@ export class App {
       return [{ kind: 'text', text: "I couldn't find an amount. Try: `coffee 5`." }];
     }
     if (res.kind === 'saved') {
-      return [{ kind: 'buttons', text: `Logged ${summarize(items)}.`, rows: [[{ label: '📊 Report', action: 'report' }, { label: '⬅️ Menu', action: 'menu' }]] }];
+      const label = items.length > 1 ? 'Logged:' : 'Logged';
+      return [
+        {
+          kind: 'buttons',
+          text: `${label}\n${summarize(items)}`,
+          rows: [[{ label: '📊 Report', action: 'report' }, { label: '⬅️ Menu', action: 'menu' }]],
+        },
+      ];
     }
     return [
       { kind: 'confirm', captureId: res.captureId, text: `Got:\n${summarize(items)}\nConfirm?` },
@@ -455,5 +462,5 @@ const MAIN_MENU: Button[][] = [
 function summarize(items: LineItem[]): string {
   return items
     .map((i) => `${Money.ofMinor(i.amountMinor, i.currency).format()} — ${i.description}`)
-    .join(', ');
+    .join('\n');
 }
