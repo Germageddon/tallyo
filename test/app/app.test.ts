@@ -153,4 +153,13 @@ describe('App end-to-end', () => {
     const tzMenu = await app.action(ref, 'tz');
     expect(tzMenu.some((r) => r.kind === 'request-location')).toBe(true);
   });
+
+  it('paginates the full currency list and sets a currency from it', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    const page = await app.action(ref, 'cur:page:0');
+    expect(page[0]!.kind).toBe('buttons');
+    expect(textOf(page[0]!)).toContain('page 1/');
+    await app.action(ref, 'cur:SEK');
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('SEK');
+  });
 });

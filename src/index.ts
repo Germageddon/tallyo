@@ -44,8 +44,21 @@ async function main(): Promise<void> {
   const capture = new CaptureService(db, pending, expenses);
   const fx = new FxService(new FxRatesRepo(db), new FrankfurterProvider(process.env.FRANKFURTER_BASE_URL));
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const llm: LlmClient = apiKey ? new OpenAiLlmClient(apiKey) : new NullLlmClient();
+  // LLM fallback for messy phrasing the rules parser can't confidently handle.
+  // Groq is free and OpenAI-compatible, so it reuses the OpenAI client with a base URL.
+  const model = process.env.LLM_MODEL;
+  let llm: LlmClient;
+  if (process.env.OPENAI_API_KEY) {
+    llm = new OpenAiLlmClient(process.env.OPENAI_API_KEY, model ?? 'gpt-4o-mini');
+  } else if (process.env.GROQ_API_KEY) {
+    llm = new OpenAiLlmClient(
+      process.env.GROQ_API_KEY,
+      model ?? 'llama-3.3-70b-versatile',
+      'https://api.groq.com/openai/v1',
+    );
+  } else {
+    llm = new NullLlmClient();
+  }
   const parser = new Parser(config.PARSER_MODE, llm);
 
   const baseDeps: AppDeps = { db, users, expenses, capture, parser, fx, now: () => new Date() };

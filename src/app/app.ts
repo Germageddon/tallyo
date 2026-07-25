@@ -12,6 +12,7 @@ import { buildReport } from '../reporting/report';
 import { toCsv } from '../export/csv';
 import { parseRange, periodRange, PERIODS, type DateRange } from './report-range';
 import { timezoneFromCoords } from './geo';
+import { ALL_CURRENCIES, COMMON_CURRENCIES } from '../domain/currency-list';
 import type { Button, Reply, UserRef } from './types';
 
 export type AppDeps = {
@@ -32,9 +33,6 @@ const HELP =
   '  `coffee 5, gas 10`\n' +
   '  `spent $20 on groceries`\n\n' +
   'For everything else, tap the buttons (or send /start to open the menu).';
-
-// Currency picker options.
-const CURRENCY_CHOICES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'CNY', 'INR'];
 
 // Timezone picker: a curated set of common cities covering most users.
 const CITY_TZS: { label: string; tz: string }[] = [
@@ -92,6 +90,7 @@ export class App {
     if (data.startsWith('export:')) return this.exportForRange(userId, this.rangeFromToken(user, data.slice(7)));
     if (data === 'tz') return this.timezoneMenu();
     if (data.startsWith('tz:')) return this.setTz(userId, data.slice(3));
+    if (data.startsWith('cur:page:')) return [this.currencyPage(Number(data.slice(9)))];
     if (data.startsWith('cur:')) return this.pickCurrency(userId, data.slice(4));
     if (data.startsWith('confirm:')) return this.confirm(ref, Number(data.slice(8)));
     if (data.startsWith('cancel:')) return this.cancel(ref, Number(data.slice(7)));
@@ -150,11 +149,32 @@ export class App {
 
   private currencyMenu(): Reply {
     const rows: Button[][] = [];
-    for (let i = 0; i < CURRENCY_CHOICES.length; i += 3) {
-      rows.push(CURRENCY_CHOICES.slice(i, i + 3).map((c) => ({ label: c, action: `cur:${c}` })));
+    for (let i = 0; i < COMMON_CURRENCIES.length; i += 3) {
+      rows.push(COMMON_CURRENCIES.slice(i, i + 3).map((c) => ({ label: c, action: `cur:${c}` })));
     }
-    rows.push([{ label: 'Other…', action: 'cur:other' }, { label: '⬅️ Menu', action: 'menu' }]);
+    rows.push([{ label: '🌍 All currencies (A–Z)', action: 'cur:page:0' }]);
+    rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
     return { kind: 'buttons', text: 'Pick your currency:', rows };
+  }
+
+  private currencyPage(page: number): Reply {
+    const PER_PAGE = 24;
+    const COLS = 4;
+    const pageCount = Math.ceil(ALL_CURRENCIES.length / PER_PAGE);
+    const p = Math.max(0, Math.min(page, pageCount - 1));
+    const slice = ALL_CURRENCIES.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
+
+    const rows: Button[][] = [];
+    for (let i = 0; i < slice.length; i += COLS) {
+      rows.push(slice.slice(i, i + COLS).map((c) => ({ label: c.code, action: `cur:${c.code}` })));
+    }
+    const nav: Button[] = [];
+    if (p > 0) nav.push({ label: '◀ Prev', action: `cur:page:${p - 1}` });
+    nav.push({ label: '⬅️ Menu', action: 'menu' });
+    if (p < pageCount - 1) nav.push({ label: 'Next ▶', action: `cur:page:${p + 1}` });
+    rows.push(nav);
+
+    return { kind: 'buttons', text: `All currencies — page ${p + 1}/${pageCount}:`, rows };
   }
 
   private timezoneMenu(): Reply[] {

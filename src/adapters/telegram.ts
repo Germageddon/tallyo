@@ -91,6 +91,7 @@ export async function runTelegram(app: App, token: string): Promise<void> {
     const ref = refFrom(ctx);
     if (!ref) return;
     const { latitude, longitude } = ctx.message.location;
+    console.log('location received:', latitude, longitude);
     await render(ctx, await app.setLocation(ref, latitude, longitude));
   });
 
