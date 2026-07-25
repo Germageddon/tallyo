@@ -4,7 +4,7 @@
 
 > A self-hostable ledger bot that gets **multi-currency money right** — every expense stored in integer minor units and converted at the **actual ECB rate on the day you spent it, reproducibly**. You log by texting it in plain language.
 
-**Status:** design v2 — hardened 2026-07-25 after a 9-lens adversarial review. Next step: implementation plan.
+**Status:** design v2 — hardened 2026-07-25 after a 9-lens adversarial review. **v1 implemented 2026-07-25** (M1–M4: money/FX core, rules+LLM parser, capture FSM, reporting/CSV, safety gate, CLI + Telegram adapters; 105 tests green). Deferred to polish: inline-button onboarding, receipt OCR, Discord/WhatsApp, live Telegram smoke test + deploy. See the README and `docs/plans/`.
 
 ---
 
