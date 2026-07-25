@@ -1,0 +1,12 @@
+services:
+  tally:
+    build: .
+    container_name: tally-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - tally-data:/app/data
+    # No published ports: the bot uses Telegram long-polling (outbound only).
+
+volumes:
+  tally-data:
