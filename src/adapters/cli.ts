@@ -27,9 +27,15 @@ export async function runCli(app: App): Promise<void> {
     for (const r of replies) {
       if (r.kind === 'text') {
         console.log(r.text);
+      } else if (r.kind === 'buttons') {
+        console.log(r.text);
+        const opts = r.rows.flat().map((b) => b.label).join('  |  ');
+        if (opts) console.log(`  [ ${opts} ]`);
       } else if (r.kind === 'confirm') {
         console.log(r.text);
         lastCaptureId = r.captureId;
+      } else if (r.kind === 'request-location') {
+        console.log(`${r.text} (location sharing is Telegram-only here — use the city list)`);
       } else {
         console.log(`\n[${r.filename}] ${r.caption}\n${r.content}`);
       }

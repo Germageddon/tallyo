@@ -1,6 +1,6 @@
-import { Bot, InlineKeyboard, InputFile, type Context } from 'grammy';
+import { Bot, InlineKeyboard, InputFile, Keyboard, type Context } from 'grammy';
 import type { App } from '../app/app';
-import type { Reply, UserRef } from '../app/types';
+import type { Button, Reply, UserRef } from '../app/types';
 
 function refFrom(ctx: Context): UserRef | null {
   const id = ctx.from?.id;
@@ -8,20 +8,55 @@ function refFrom(ctx: Context): UserRef | null {
   return { platform: 'telegram', platformUserId: String(id) };
 }
 
+function kb(rows: Button[][]): InlineKeyboard {
+  const k = new InlineKeyboard();
+  rows.forEach((row, i) => {
+    if (i > 0) k.row();
+    for (const b of row) k.text(b.label, b.action);
+  });
+  return k;
+}
+
+async function renderOne(ctx: Context, r: Reply): Promise<void> {
+  if (r.kind === 'text') {
+    await ctx.reply(r.text);
+  } else if (r.kind === 'buttons') {
+    await ctx.reply(r.text, { reply_markup: kb(r.rows) });
+  } else if (r.kind === 'confirm') {
+    const keyboard = new InlineKeyboard()
+      .text('✅ Confirm', `confirm:${r.captureId}`)
+      .text('❌ Cancel', `cancel:${r.captureId}`);
+    await ctx.reply(r.text, { reply_markup: keyboard });
+  } else if (r.kind === 'request-location') {
+    await ctx.reply(r.text, {
+      reply_markup: new Keyboard().requestLocation('📍 Share my location').oneTime().resized(),
+    });
+  } else {
+    await ctx.replyWithDocument(new InputFile(Buffer.from(r.content, 'utf8'), r.filename), {
+      caption: r.caption,
+    });
+  }
+}
+
 async function render(ctx: Context, replies: Reply[]): Promise<void> {
+  for (const r of replies) await renderOne(ctx, r);
+}
+
+/** For button taps: edit the tapped message in place (first text/menu), so the chat stays tidy. */
+async function renderCallback(ctx: Context, replies: Reply[]): Promise<void> {
+  let edited = false;
   for (const r of replies) {
-    if (r.kind === 'text') {
-      await ctx.reply(r.text);
-    } else if (r.kind === 'confirm') {
-      const keyboard = new InlineKeyboard()
-        .text('✅ Confirm', `confirm:${r.captureId}`)
-        .text('❌ Cancel', `cancel:${r.captureId}`);
-      await ctx.reply(r.text, { reply_markup: keyboard });
-    } else {
-      await ctx.replyWithDocument(new InputFile(Buffer.from(r.content, 'utf8'), r.filename), {
-        caption: r.caption,
-      });
+    if (!edited && (r.kind === 'text' || r.kind === 'buttons')) {
+      edited = true;
+      const markup = r.kind === 'buttons' ? kb(r.rows) : new InlineKeyboard();
+      try {
+        await ctx.editMessageText(r.text, { reply_markup: markup });
+        continue;
+      } catch {
+        /* message unchanged or too old — fall through and send a fresh one */
+      }
     }
+    await renderOne(ctx, r);
   }
 }
 
@@ -30,21 +65,18 @@ export async function runTelegram(app: App, token: string): Promise<void> {
   const bot = new Bot(token);
 
   await bot.api.setMyCommands([
-    { command: 'help', description: 'How to use Tally' },
+    { command: 'start', description: 'Open the menu' },
     { command: 'report', description: 'Spending report' },
     { command: 'export', description: 'Export CSV' },
-    { command: 'settings', description: 'Your currency & timezone' },
-    { command: 'currency', description: 'Set your currency (e.g. /currency USD)' },
-    { command: 'timezone', description: 'Set your timezone (e.g. /timezone Europe/Berlin)' },
-    { command: 'forget', description: 'Delete all your data' },
+    { command: 'currency', description: 'Set your currency' },
+    { command: 'settings', description: 'Settings' },
+    { command: 'help', description: 'How to use Tallyo' },
   ]);
 
-  // All text (expenses AND slash-commands) is routed through the App, which does the parsing.
   bot.on('message:text', async (ctx) => {
     const ref = refFrom(ctx);
     if (!ref) return;
-    const replies = await app.handle(ref, ctx.message.text);
-    await render(ctx, replies);
+    await render(ctx, await app.handle(ref, ctx.message.text));
   });
 
   bot.on('callback_query:data', async (ctx) => {
@@ -52,20 +84,14 @@ export async function runTelegram(app: App, token: string): Promise<void> {
     const data = ctx.callbackQuery.data;
     await ctx.answerCallbackQuery();
     if (!ref) return;
+    await renderCallback(ctx, await app.action(ref, data));
+  });
 
-    let replies: Reply[] = [];
-    if (data.startsWith('confirm:')) {
-      replies = await app.confirm(ref, Number(data.slice('confirm:'.length)));
-    } else if (data.startsWith('cancel:')) {
-      replies = await app.cancel(ref, Number(data.slice('cancel:'.length)));
-    }
-    // Strip the buttons so the action can't be re-tapped.
-    try {
-      await ctx.editMessageReplyMarkup();
-    } catch {
-      /* message may be too old to edit */
-    }
-    await render(ctx, replies);
+  bot.on('message:location', async (ctx) => {
+    const ref = refFrom(ctx);
+    if (!ref) return;
+    const { latitude, longitude } = ctx.message.location;
+    await render(ctx, await app.setLocation(ref, latitude, longitude));
   });
 
   bot.catch((err) => {

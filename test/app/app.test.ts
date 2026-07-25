@@ -32,7 +32,7 @@ function makeApp(parser: Parser): App {
   return new App({ db, users, expenses, capture, parser, fx, now });
 }
 
-const textOf = (r: Reply): string => (r.kind === 'text' || r.kind === 'confirm' ? r.text : '');
+const textOf = (r: Reply): string => ('text' in r ? r.text : '');
 
 describe('App end-to-end', () => {
   it('auto-logs a high-confidence expense and reports the total', async () => {
@@ -127,5 +127,30 @@ describe('App end-to-end', () => {
 
     const bad = await app.handle(ref, '/timezone Nowhere/Fake');
     expect(textOf(bad[0]!)).toContain('Usage');
+  });
+
+  it('routes button actions: report period, currency, timezone, menu', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'coffee 5');
+
+    const rep = await app.action(ref, 'report:this-month');
+    expect(textOf(rep[0]!)).toContain('Total: $5.00');
+
+    await app.action(ref, 'cur:EUR');
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('EUR');
+
+    await app.action(ref, 'tz:Asia/Beirut');
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('Asia/Beirut');
+
+    expect((await app.action(ref, 'menu'))[0]!.kind).toBe('buttons');
+  });
+
+  it('auto-detects timezone from a shared location', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.setLocation(ref, 33.8886, 35.4955); // Beirut
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('Asia/Beirut');
+
+    const tzMenu = await app.action(ref, 'tz');
+    expect(tzMenu.some((r) => r.kind === 'request-location')).toBe(true);
   });
 });

@@ -21,6 +21,7 @@
     "dotenv": "^17.4.2",
     "grammy": "^1.45.1",
     "tsx": "^4.19.0",
+    "tz-lookup": "^6.1.25",
     "zod": "^3.23.8"
   },
   "devDependencies": {
