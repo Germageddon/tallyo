@@ -131,6 +131,18 @@ export class App {
 
   // ---- menus --------------------------------------------------------------
 
+  private welcome(): Reply {
+    return {
+      kind: 'buttons',
+      text:
+        "👋 Hey! I'm Tallyo — I keep track of what you spend.\n\n" +
+        'Just text me your expenses in plain words:\n' +
+        '   `coffee 5, gas 10`\n\n' +
+        "That's it — I'll log them and total it up. Use the buttons below for reports, currency and settings.",
+      rows: MAIN_MENU,
+    };
+  }
+
   private menu(): Reply {
     return {
       kind: 'buttons',
@@ -318,6 +330,7 @@ export class App {
     const arg = rest.join(' ');
     switch (cmd) {
       case '/start':
+        return [this.welcome()];
       case '/menu':
         return [this.menu()];
       case '/help':
