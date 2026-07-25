@@ -163,4 +163,17 @@ describe('App end-to-end', () => {
     await app.action(ref, 'cur:SEK');
     expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('SEK');
   });
+
+  it('paginates a long itemized report', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    for (let i = 0; i < 12; i++) await app.handle(ref, 'coffee 5');
+
+    const page1 = await app.action(ref, 'report:this-month'); // now = 2026-06-15 → June
+    expect(page1[0]!.kind).toBe('buttons');
+    expect(textOf(page1[0]!)).toContain('page 1/2');
+
+    const page2 = await app.action(ref, 'rptpage:2026-06-01:2026-06-30:1');
+    expect(textOf(page2[0]!)).toContain('page 2/2');
+    expect(textOf(page2[0]!)).toContain('Total: $60.00'); // 12 × $5, full-range total on every page
+  });
 });

@@ -73,10 +73,8 @@ export class App {
 
   /** A button tap. `data` is the button's action string. */
   async action(ref: UserRef, data: string): Promise<Reply[]> {
-    if (this.d.gate) {
-      const gated = this.d.gate.check(ref, '');
-      if (!gated.ok) return [{ kind: 'text', text: gated.reply }];
-    }
+    // Button taps are free navigation (no LLM), so they are NOT gated/rate-limited —
+    // only typed messages (which can hit the LLM) go through the gate.
     const { userId, user } = this.load(ref);
 
     if (data === 'menu') return [this.menu()];
@@ -86,6 +84,11 @@ export class App {
     if (data === 'currency') return [this.currencyMenu()];
     if (data === 'settings') return [this.settingsReply(user)];
 
+    if (data.startsWith('rptpage:')) {
+      const [from, to, pageStr] = data.slice(8).split(':');
+      if (from && to) return this.reportPage(userId, user, { from, to }, Number(pageStr ?? '0'));
+      return [this.menu()];
+    }
     if (data.startsWith('report:')) return this.reportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
     if (data.startsWith('export:')) return this.exportForRange(userId, this.rangeFromToken(user, data.slice(7)));
     if (data === 'tz') return this.timezoneMenu();
@@ -230,6 +233,15 @@ export class App {
 
   private async reportForRange(userId: number, user: UserRow, range: DateRange | null): Promise<Reply[]> {
     if (!range) return [this.menu()];
+    return this.reportPage(userId, user, range, 0);
+  }
+
+  private async reportPage(
+    userId: number,
+    user: UserRow,
+    range: DateRange,
+    page: number,
+  ): Promise<Reply[]> {
     const rows = this.d.expenses.listByRange(userId, range.from, range.to);
     if (rows.length === 0) {
       return [
@@ -248,29 +260,33 @@ export class App {
       hour: 'numeric',
       minute: '2-digit',
     });
-    const MAX = 30;
+
+    const PER_PAGE = 10;
+    const pageCount = Math.max(1, Math.ceil(report.entries.length / PER_PAGE));
+    const p = Math.max(0, Math.min(page, pageCount - 1));
     const lines = report.entries
-      .slice(0, MAX)
+      .slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE)
       .map(
         (e) =>
           `${fmt.format(new Date(e.at))} · ${e.label} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
       );
-    if (report.entries.length > MAX) {
-      lines.push(`…and ${report.entries.length - MAX} more (use Export for the full list)`);
-    }
     const total = Money.ofMinor(report.totalMinor, report.targetCurrency).format();
-    return [
-      {
-        kind: 'buttons',
-        text: `📊 ${range.from} … ${range.to} (${report.targetCurrency})\n\n${lines.join('\n')}\n\nTotal: ${total}`,
-        rows: [
-          [
-            { label: '📤 Export this', action: `export:${range.from}:${range.to}` },
-            { label: '⬅️ Menu', action: 'menu' },
-          ],
-        ],
-      },
-    ];
+    const header =
+      pageCount > 1
+        ? `📊 ${range.from} … ${range.to} (${report.targetCurrency}) — page ${p + 1}/${pageCount}`
+        : `📊 ${range.from} … ${range.to} (${report.targetCurrency})`;
+
+    const nav: Button[] = [];
+    if (p > 0) nav.push({ label: '◀ Prev', action: `rptpage:${range.from}:${range.to}:${p - 1}` });
+    if (p < pageCount - 1) nav.push({ label: 'Next ▶', action: `rptpage:${range.from}:${range.to}:${p + 1}` });
+    const btnRows: Button[][] = [];
+    if (nav.length) btnRows.push(nav);
+    btnRows.push([
+      { label: '📤 Export this', action: `export:${range.from}:${range.to}` },
+      { label: '⬅️ Menu', action: 'menu' },
+    ]);
+
+    return [{ kind: 'buttons', text: `${header}\n\n${lines.join('\n')}\n\nTotal: ${total}`, rows: btnRows }];
   }
 
   private async exportForRange(userId: number, range: DateRange | null): Promise<Reply[]> {
