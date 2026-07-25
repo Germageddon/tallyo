@@ -76,6 +76,6 @@ export async function runTelegram(app: App, token: string): Promise<void> {
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
 
-  console.log('Tally is running on Telegram (long-polling).');
+  console.log('Tallyo is running on Telegram (long-polling).');
   await bot.start();
 }

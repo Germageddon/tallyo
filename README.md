@@ -1,6 +1,4 @@
-# Tally
-
-> Working name — will be renamed before it goes public.
+# Tallyo
 
 A self-hostable ledger bot that gets **multi-currency money right**: every expense is stored
 in integer minor units and converted at the **actual ECB rate on the day you spent it**, so a

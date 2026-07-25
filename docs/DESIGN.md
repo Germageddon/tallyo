@@ -1,6 +1,6 @@
-# Tally — design spec
+# Tallyo — design spec
 
-> Working name — **must be renamed before publishing** ("Tally" collides with tally.xyz, Tally Ho wallet, Tally.so). Candidates: Quipu, Plainledger, Ledgerline. Verify `npm view <name>` 404 + GitHub search before locking.
+> Named **Tallyo** (Telegram [@TallyoBot](https://t.me/TallyoBot)); npm + GitHub name clear.
 
 > A self-hostable ledger bot that gets **multi-currency money right** — every expense stored in integer minor units and converted at the **actual ECB rate on the day you spent it, reproducibly**. You log by texting it in plain language.
 

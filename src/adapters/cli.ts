@@ -8,7 +8,7 @@ export async function runCli(app: App): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout, prompt: '> ' });
   let lastCaptureId: number | null = null;
 
-  console.log('Tally CLI — type an expense (e.g. "coffee 5, gas 10"), or /help. Ctrl-C to quit.');
+  console.log('Tallyo CLI — type an expense (e.g. "coffee 5, gas 10"), or /help. Ctrl-C to quit.');
   rl.prompt();
 
   for await (const line of rl) {
