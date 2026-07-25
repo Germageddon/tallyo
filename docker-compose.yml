@@ -1,12 +1,13 @@
 services:
-  tally:
+  tallyo:
     build: .
-    container_name: tally-bot
+    container_name: tallyo-bot
     restart: unless-stopped
     env_file: .env
     volumes:
-      - tally-data:/app/data
-    # No published ports: the bot uses Telegram long-polling (outbound only).
+      - tallyo-data:/app/data
+    # No published ports: the bot uses Telegram long-polling (outbound only),
+    # so it can't collide with anything else running on the host.
 
 volumes:
-  tally-data:
+  tallyo-data:
