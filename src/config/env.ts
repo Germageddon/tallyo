@@ -12,7 +12,7 @@ const ConfigSchema = z.object({
   ALLOWLIST: z.string().default(''), // comma-separated platform user ids
   MAX_INPUT_CHARS: z.coerce.number().int().positive().default(500),
   RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(20),
-  DAILY_MSG_QUOTA: z.coerce.number().int().positive().default(100),
+  DAILY_MSG_QUOTA: z.coerce.number().int().positive().default(1000),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
