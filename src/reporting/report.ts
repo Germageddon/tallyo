@@ -2,6 +2,7 @@ import type { ExpenseRow } from '../storage/expenses-repo';
 import type { FxService } from '../fx/fx-service';
 
 export type ReportEntry = {
+  id: number; // the expense row id (for delete)
   label: string; // the user's own description
   amountMinor: number; // converted to the target currency
   at: string; // ISO timestamp the expense was logged (created_at)
@@ -35,7 +36,7 @@ export async function buildReport(
       targetCurrency,
       row.spentOn,
     );
-    entries.push({ label: row.description.trim() || 'expense', amountMinor, at: row.createdAt });
+    entries.push({ id: row.id, label: row.description.trim() || 'expense', amountMinor, at: row.createdAt });
     totalMinor += amountMinor;
   }
 

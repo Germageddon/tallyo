@@ -89,6 +89,20 @@ export class App {
       if (from && to) return this.reportPage(userId, user, { from, to }, Number(pageStr ?? '0'));
       return [this.menu()];
     }
+    if (data.startsWith('undo:')) return this.undoLog(userId, data.slice(5));
+    if (data.startsWith('dellist:')) {
+      const [from, to, pageStr] = data.slice(8).split(':');
+      if (from && to) return this.deleteListPage(userId, user, { from, to }, Number(pageStr ?? '0'));
+      return [this.menu()];
+    }
+    if (data.startsWith('del:')) {
+      const [from, to, idStr] = data.slice(4).split(':');
+      if (from && to && idStr) {
+        this.d.expenses.softDelete(userId, Number(idStr));
+        return this.deleteListPage(userId, user, { from, to }, 0, '🗑 Deleted.');
+      }
+      return [this.menu()];
+    }
     if (data.startsWith('report:')) return this.reportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
     if (data.startsWith('export:')) return this.exportForRange(userId, this.rangeFromToken(user, data.slice(7)));
     if (data === 'tz') return this.timezoneMenu();
@@ -293,12 +307,72 @@ export class App {
     if (p < pageCount - 1) nav.push({ label: 'Next ▶', action: `rptpage:${range.from}:${range.to}:${p + 1}` });
     const btnRows: Button[][] = [];
     if (nav.length) btnRows.push(nav);
+    btnRows.push([{ label: '🗑 Delete an entry', action: `dellist:${range.from}:${range.to}:0` }]);
     btnRows.push([
       { label: '📤 Export this', action: `export:${range.from}:${range.to}` },
       { label: '⬅️ Menu', action: 'menu' },
     ]);
 
     return [{ kind: 'buttons', text: `${header}\n\n${lines.join('\n')}\n\nTotal: ${total}`, rows: btnRows }];
+  }
+
+  private undoLog(userId: number, idsCsv: string): Reply[] {
+    const ids = idsCsv.split(',').map(Number).filter((n) => Number.isInteger(n));
+    let removed = 0;
+    for (const id of ids) if (this.d.expenses.softDelete(userId, id)) removed++;
+    const text = removed > 0 ? '↩️ Undone — removed.' : 'That was already handled.';
+    return [{ kind: 'buttons', text, rows: MAIN_MENU }];
+  }
+
+  private async deleteListPage(
+    userId: number,
+    user: UserRow,
+    range: DateRange,
+    page: number,
+    note?: string,
+  ): Promise<Reply[]> {
+    const rows = this.d.expenses.listByRange(userId, range.from, range.to);
+    if (rows.length === 0) {
+      return [
+        {
+          kind: 'buttons',
+          text: `${note ? note + '\n\n' : ''}Nothing left to delete for ${range.from} → ${range.to}.`,
+          rows: [[{ label: '⬅️ Menu', action: 'menu' }]],
+        },
+      ];
+    }
+    const report = await buildReport(rows, user.displayCurrency, this.d.fx);
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: user.timezone,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    const PER_PAGE = 20;
+    const pageCount = Math.max(1, Math.ceil(report.entries.length / PER_PAGE));
+    const p = Math.max(0, Math.min(page, pageCount - 1));
+    const btnRows: Button[][] = report.entries
+      .slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE)
+      .map((e) => [
+        {
+          label: `🗑 ${fmt.format(new Date(e.at))} · ${e.label} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
+          action: `del:${range.from}:${range.to}:${e.id}`,
+        },
+      ]);
+
+    const nav: Button[] = [];
+    if (p > 0) nav.push({ label: '◀ Prev', action: `dellist:${range.from}:${range.to}:${p - 1}` });
+    if (p < pageCount - 1) nav.push({ label: 'Next ▶', action: `dellist:${range.from}:${range.to}:${p + 1}` });
+    if (nav.length) btnRows.push(nav);
+    btnRows.push([
+      { label: '⬅️ Back to report', action: `report:${range.from}:${range.to}` },
+      { label: 'Menu', action: 'menu' },
+    ]);
+
+    const header = note ? `${note}\n\nTap an entry to delete it:` : 'Tap an entry to delete it:';
+    return [{ kind: 'buttons', text: header, rows: btnRows }];
   }
 
   private async exportForRange(userId: number, range: DateRange | null): Promise<Reply[]> {
@@ -386,7 +460,10 @@ export class App {
         {
           kind: 'buttons',
           text: `${label}\n${summarize(items)}`,
-          rows: [[{ label: '📊 Report', action: 'report' }, { label: '⬅️ Menu', action: 'menu' }]],
+          rows: [
+            [{ label: '↩️ Undo', action: `undo:${res.ids.join(',')}` }],
+            [{ label: '📊 Report', action: 'report' }, { label: '⬅️ Menu', action: 'menu' }],
+          ],
         },
       ];
     }

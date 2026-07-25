@@ -176,4 +176,29 @@ describe('App end-to-end', () => {
     expect(textOf(page2[0]!)).toContain('page 2/2');
     expect(textOf(page2[0]!)).toContain('Total: $275.00'); // 55 × $5, full-range total on every page
   });
+
+  it('undo removes the just-logged entry', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    const logged = await app.handle(ref, 'coffee 5');
+    const undoBtn = (logged[0] as Extract<Reply, { kind: 'buttons' }>).rows
+      .flat()
+      .find((b) => b.action.startsWith('undo:'));
+    expect(undoBtn).toBeDefined();
+    await app.action(ref, undoBtn!.action);
+    expect(textOf((await app.action(ref, 'report:this-month'))[0]!)).toContain('No expenses');
+  });
+
+  it('deletes a specific entry from the delete list', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'gas 10');
+    await app.handle(ref, 'lunch 20');
+    const list = await app.action(ref, 'dellist:2026-06-01:2026-06-30:0');
+    const delBtn = (list[0] as Extract<Reply, { kind: 'buttons' }>).rows
+      .flat()
+      .find((b) => b.action.startsWith('del:'));
+    expect(delBtn).toBeDefined();
+    await app.action(ref, delBtn!.action);
+    const rep = await app.action(ref, 'report:this-month');
+    expect(textOf(rep[0]!)).toMatch(/Total: \$(10|20)\.00/);
+  });
 });
