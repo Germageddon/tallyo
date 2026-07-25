@@ -273,7 +273,7 @@ export class App {
       minute: '2-digit',
     });
 
-    const PER_PAGE = 10;
+    const PER_PAGE = 50;
     const pageCount = Math.max(1, Math.ceil(report.entries.length / PER_PAGE));
     const p = Math.max(0, Math.min(page, pageCount - 1));
     const lines = report.entries
