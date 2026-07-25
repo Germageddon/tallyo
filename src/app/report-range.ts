@@ -26,9 +26,12 @@ function monthRange(today: string, offset: number): DateRange {
 /** The date-range choices offered as buttons (key → label). */
 export const PERIODS: { key: string; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'last-7', label: 'Last 7 days' },
   { key: 'this-month', label: 'This month' },
   { key: 'last-month', label: 'Last month' },
-  { key: 'last-7', label: 'Last 7 days' },
+  { key: 'this-year', label: 'This year' },
+  { key: 'last-year', label: 'Last year' },
+  { key: 'all', label: 'All time' },
 ];
 
 /** Resolve a button period key to a concrete range in the user's timezone. */
@@ -43,6 +46,16 @@ export function periodRange(key: string, timezone: string, now: Date): DateRange
       return monthRange(today, -1);
     case 'last-7':
       return { from: addDays(today, -6), to: today };
+    case 'this-year': {
+      const y = today.slice(0, 4);
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    case 'last-year': {
+      const y = Number(today.slice(0, 4)) - 1;
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    case 'all':
+      return { from: '2000-01-01', to: today };
     default:
       return null;
   }
@@ -60,6 +73,9 @@ export function parseRange(arg: string, timezone: string, now: Date): DateRange 
   if (a === 'last month') return monthRange(today, -1);
   if (a === 'today') return { from: today, to: today };
   if (a === 'last 7 days') return { from: addDays(today, -6), to: today };
+  if (a === 'this year') return periodRange('this-year', timezone, now);
+  if (a === 'last year') return periodRange('last-year', timezone, now);
+  if (a === 'all' || a === 'all time') return periodRange('all', timezone, now);
   const two = a.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{4}-\d{2}-\d{2})$/);
   if (two) return { from: two[1]!, to: two[2]! };
   return null;

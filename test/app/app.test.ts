@@ -201,4 +201,13 @@ describe('App end-to-end', () => {
     const rep = await app.action(ref, 'report:this-month');
     expect(textOf(rep[0]!)).toMatch(/Total: \$(10|20)\.00/);
   });
+
+  it('supports year periods and a custom-range prompt', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'coffee 5'); // now = 2026-06-15
+
+    expect(textOf((await app.action(ref, 'report:this-year'))[0]!)).toContain('Total: $5.00');
+    expect(textOf((await app.action(ref, 'report:last-year'))[0]!)).toContain('No expenses');
+    expect(textOf((await app.action(ref, 'custom:report'))[0]!)).toContain('/report');
+  });
 });

@@ -81,6 +81,15 @@ export class App {
     if (data === 'help') return [{ kind: 'text', text: HELP }];
     if (data === 'report') return [this.periodMenu('report', 'Report — pick a period:')];
     if (data === 'export') return [this.periodMenu('export', 'Export — pick a period:')];
+    if (data.startsWith('custom:')) {
+      const cmd = data.slice(7) === 'export' ? '/export' : '/report';
+      return [
+        {
+          kind: 'text',
+          text: `📅 For any date range, send:\n\`${cmd} 2025-01-01 2025-12-31\`\n\n(dates as YYYY-MM-DD, oldest first)`,
+        },
+      ];
+    }
     if (data === 'currency') return [this.currencyMenu()];
     if (data === 'settings') return [this.settingsReply(user)];
 
@@ -172,6 +181,7 @@ export class App {
         PERIODS.slice(i, i + 2).map((p) => ({ label: p.label, action: `${kind}:${p.key}` })),
       );
     }
+    rows.push([{ label: '📅 Custom range', action: `custom:${kind}` }]);
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
     return { kind: 'buttons', text: title, rows };
   }
