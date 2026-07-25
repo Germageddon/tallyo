@@ -294,7 +294,7 @@ export class App {
       .slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE)
       .map(
         (e) =>
-          `${fmt.format(new Date(e.at))} · ${e.label} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
+          `${fmt.format(new Date(e.at))} · ${trunc(e.label, 40)} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
       );
     const total = Money.ofMinor(report.totalMinor, report.targetCurrency).format();
     const header =
@@ -320,7 +320,7 @@ export class App {
     const ids = idsCsv.split(',').map(Number).filter((n) => Number.isInteger(n));
     let removed = 0;
     for (const id of ids) if (this.d.expenses.softDelete(userId, id)) removed++;
-    const text = removed > 0 ? '↩️ Undone — removed.' : 'That was already handled.';
+    const text = removed > 0 ? 'Removed.' : 'That was already handled.';
     return [{ kind: 'buttons', text, rows: MAIN_MENU }];
   }
 
@@ -357,7 +357,7 @@ export class App {
       .slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE)
       .map((e) => [
         {
-          label: `🗑 ${fmt.format(new Date(e.at))} · ${e.label} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
+          label: `🗑 ${fmt.format(new Date(e.at))} · ${trunc(e.label, 30)} — ${Money.ofMinor(e.amountMinor, report.targetCurrency).format()}`,
           action: `del:${range.from}:${range.to}:${e.id}`,
         },
       ]);
@@ -553,4 +553,9 @@ function summarize(items: LineItem[]): string {
   return items
     .map((i) => `${Money.ofMinor(i.amountMinor, i.currency).format()} — ${i.description}`)
     .join('\n');
+}
+
+/** Cap a display string so report pages can't exceed Telegram's message limit. */
+function trunc(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
