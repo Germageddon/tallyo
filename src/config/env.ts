@@ -5,6 +5,14 @@ const ConfigSchema = z.object({
   DEFAULT_CURRENCY: z.string().length(3).default('USD'),
   DEFAULT_TZ: z.string().min(1).default('UTC'),
   PARSER_MODE: z.enum(['rules', 'llm', 'auto']).default('auto'),
+
+  // Access control & abuse limits (used by the public bot, not the local CLI).
+  ACCESS_MODE: z.enum(['allowlist', 'open']).default('allowlist'),
+  OWNER_ID: z.string().optional(), // owner's platform user id (bypasses the allowlist)
+  ALLOWLIST: z.string().default(''), // comma-separated platform user ids
+  MAX_INPUT_CHARS: z.coerce.number().int().positive().default(500),
+  RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
+  DAILY_MSG_QUOTA: z.coerce.number().int().positive().default(100),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

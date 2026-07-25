@@ -11,6 +11,10 @@ import { StaticFxProvider } from '../../src/fx/provider';
 import { Parser } from '../../src/parser/parser';
 import { MockLlmClient } from '../../src/parser/llm-client';
 import { NullLlmClient } from '../../src/parser/null-llm';
+import { AccessRepo } from '../../src/storage/access-repo';
+import { UsageRepo } from '../../src/storage/usage-repo';
+import { RateLimiter } from '../../src/safety/rate-limiter';
+import { Gate } from '../../src/safety/gate';
 import { App } from '../../src/app/app';
 import type { Reply, UserRef } from '../../src/app/types';
 
@@ -25,7 +29,7 @@ function makeApp(parser: Parser): App {
   const pending = new PendingRepo(db);
   const capture = new CaptureService(db, pending, expenses);
   const fx = new FxService(new FxRatesRepo(db), new StaticFxProvider({ '2026-06-15': { EUR: '0.9' } }));
-  return new App({ users, expenses, capture, parser, fx, now });
+  return new App({ db, users, expenses, capture, parser, fx, now });
 }
 
 const textOf = (r: Reply): string => (r.kind === 'text' || r.kind === 'confirm' ? r.text : '');
@@ -74,5 +78,42 @@ describe('App end-to-end', () => {
     const doc = r[0] as Extract<Reply, { kind: 'document' }>;
     expect(doc.content).toContain('date,category,description,amount,currency');
     expect(doc.filename).toContain('.csv');
+  });
+
+  it('blocks a non-allowlisted user, then allows them after /approve', async () => {
+    const db = openDb(':memory:');
+    migrate(db);
+    const users = new UsersRepo(db, { defaultCurrency: 'USD', defaultTz: 'UTC' });
+    const expenses = new ExpensesRepo(db);
+    const pending = new PendingRepo(db);
+    const capture = new CaptureService(db, pending, expenses);
+    const fx = new FxService(new FxRatesRepo(db), new StaticFxProvider({}));
+    const access = new AccessRepo(db);
+    const limiter = new RateLimiter(100, 60_000, () => 0);
+    const gate = new Gate(
+      access,
+      new UsageRepo(db),
+      limiter,
+      { accessMode: 'allowlist', maxInputChars: 500, dailyMsgQuota: 100 },
+      now,
+    );
+    const app = new App({
+      db,
+      users,
+      expenses,
+      capture,
+      parser: new Parser('rules', new NullLlmClient()),
+      fx,
+      now,
+      gate,
+      access,
+    });
+
+    const denied = await app.handle(ref, 'coffee 5');
+    expect(textOf(denied[0]!).toLowerCase()).toContain('private');
+
+    access.approve(ref.platform, ref.platformUserId, 'owner');
+    const allowed = await app.handle(ref, 'coffee 5');
+    expect(textOf(allowed[0]!)).toContain('Logged');
   });
 });

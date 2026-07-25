@@ -1,22 +1,29 @@
 import { Money } from '../domain/money';
+import type { Db } from '../storage/db';
 import type { Parser } from '../parser/parser';
 import type { LineItem } from '../parser/types';
 import type { FxService } from '../fx/fx-service';
 import type { UsersRepo, UserRow } from '../storage/users-repo';
 import type { ExpensesRepo } from '../storage/expenses-repo';
 import type { CaptureService } from '../capture/capture-service';
+import type { AccessRepo } from '../storage/access-repo';
+import type { Gate } from '../safety/gate';
 import { buildReport } from '../reporting/report';
 import { toCsv } from '../export/csv';
 import { parseRange } from './report-range';
 import type { Reply, UserRef } from './types';
 
 export type AppDeps = {
+  db: Db;
   users: UsersRepo;
   expenses: ExpensesRepo;
   capture: CaptureService;
   parser: Parser;
   fx: FxService;
   now: () => Date;
+  gate?: Gate; // public-bot access/rate gate; omitted for the local CLI
+  access?: AccessRepo; // enables owner /approve /revoke
+  ownerRef?: UserRef;
 };
 
 const HELP =
@@ -27,16 +34,22 @@ const HELP =
   '  /report [last month | this month | today | YYYY-MM-DD YYYY-MM-DD]\n' +
   '  /export [same ranges]\n' +
   '  /settings — show your currency & timezone\n' +
+  '  /forget — delete all your data\n' +
   '  yes / no — confirm or cancel a pending entry';
 
 export class App {
   constructor(private readonly d: AppDeps) {}
 
   async handle(ref: UserRef, text: string): Promise<Reply[]> {
+    if (this.d.gate) {
+      const gated = this.d.gate.check(ref, text);
+      if (!gated.ok) return [{ kind: 'text', text: gated.reply }];
+    }
+
     const userId = this.d.users.upsert(ref.platform, ref.platformUserId);
     const user = this.d.users.getById(userId)!;
     const trimmed = text.trim();
-    if (trimmed.startsWith('/')) return this.command(userId, user, trimmed);
+    if (trimmed.startsWith('/')) return this.command(ref, userId, user, trimmed);
     return this.logExpense(userId, user, trimmed);
   }
 
@@ -77,13 +90,12 @@ export class App {
     if (res.kind === 'saved') {
       return [{ kind: 'text', text: `Logged ${summarize(items)}.` }];
     }
-    // res.kind === 'confirm'
     return [
       { kind: 'confirm', captureId: res.captureId, text: `Got:\n${summarize(items)}\nConfirm? (yes / no)` },
     ];
   }
 
-  private async command(userId: number, user: UserRow, text: string): Promise<Reply[]> {
+  private async command(ref: UserRef, userId: number, user: UserRow, text: string): Promise<Reply[]> {
     const [cmd, ...rest] = text.split(/\s+/);
     const arg = rest.join(' ');
     switch (cmd) {
@@ -104,8 +116,14 @@ export class App {
         return this.report(userId, user, arg);
       case '/export':
         return this.export(userId, user, arg);
+      case '/forget':
+        return this.forget(userId, arg);
+      case '/approve':
+        return this.ownerAccess(ref, arg, 'approve');
+      case '/revoke':
+        return this.ownerAccess(ref, arg, 'revoke');
       default:
-        return [{ kind: 'text', text: `Unknown command. ${HELP}` }];
+        return [{ kind: 'text', text: `Unknown command.\n\n${HELP}` }];
     }
   }
 
@@ -142,6 +160,42 @@ export class App {
         caption: `${rows.length} expenses, ${range.from}…${range.to}`,
       },
     ];
+  }
+
+  private async forget(userId: number, arg: string): Promise<Reply[]> {
+    if (arg.trim().toLowerCase() !== 'confirm') {
+      return [
+        {
+          kind: 'text',
+          text: 'This permanently deletes ALL your expenses. Send `/forget confirm` to proceed.',
+        },
+      ];
+    }
+    const run = this.d.db.transaction(() => {
+      this.d.db.prepare('DELETE FROM expenses WHERE user_id = ?').run(userId);
+      this.d.db.prepare('DELETE FROM pending_captures WHERE user_id = ?').run(userId);
+    });
+    run();
+    return [{ kind: 'text', text: 'Done — all your data has been deleted.' }];
+  }
+
+  private async ownerAccess(ref: UserRef, arg: string, action: 'approve' | 'revoke'): Promise<Reply[]> {
+    if (!this.d.access || !this.isOwner(ref)) {
+      return [{ kind: 'text', text: 'Not available.' }];
+    }
+    const target = arg.trim();
+    if (!target) return [{ kind: 'text', text: `Usage: /${action} <user id>` }];
+    if (action === 'approve') {
+      this.d.access.approve(ref.platform, target, ref.platformUserId);
+      return [{ kind: 'text', text: `Approved ${target}.` }];
+    }
+    this.d.access.revoke(ref.platform, target);
+    return [{ kind: 'text', text: `Revoked ${target}.` }];
+  }
+
+  private isOwner(ref: UserRef): boolean {
+    const o = this.d.ownerRef;
+    return !!o && o.platform === ref.platform && o.platformUserId === ref.platformUserId;
   }
 }
 

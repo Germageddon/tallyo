@@ -42,7 +42,8 @@ async function main(): Promise<void> {
   const llm: LlmClient = apiKey ? new OpenAiLlmClient(apiKey) : new NullLlmClient();
   const parser = new Parser(config.PARSER_MODE, llm);
 
-  const app = new App({ users, expenses, capture, parser, fx, now: () => new Date() });
+  // The local CLI is the operator's own machine, so it runs without the access gate.
+  const app = new App({ db, users, expenses, capture, parser, fx, now: () => new Date() });
 
   const shutdown = () => {
     db.close();
