@@ -42,24 +42,6 @@ async function render(ctx: Context, replies: Reply[]): Promise<void> {
   for (const r of replies) await renderOne(ctx, r);
 }
 
-/** For button taps: edit the tapped message in place (first text/menu), so the chat stays tidy. */
-async function renderCallback(ctx: Context, replies: Reply[]): Promise<void> {
-  let edited = false;
-  for (const r of replies) {
-    if (!edited && (r.kind === 'text' || r.kind === 'buttons')) {
-      edited = true;
-      const markup = r.kind === 'buttons' ? kb(r.rows) : new InlineKeyboard();
-      try {
-        await ctx.editMessageText(r.text, { reply_markup: markup });
-        continue;
-      } catch {
-        /* message unchanged or too old — fall through and send a fresh one */
-      }
-    }
-    await renderOne(ctx, r);
-  }
-}
-
 /** Telegram (grammY) adapter over the platform-agnostic App. Long-polling; outbound only. */
 export async function runTelegram(app: App, token: string): Promise<void> {
   const bot = new Bot(token);
@@ -84,7 +66,8 @@ export async function runTelegram(app: App, token: string): Promise<void> {
     const data = ctx.callbackQuery.data;
     await ctx.answerCallbackQuery();
     if (!ref) return;
-    await renderCallback(ctx, await app.action(ref, data));
+    // Reply with fresh messages (not in-place edits) so reports/results stay in history.
+    await render(ctx, await app.action(ref, data));
   });
 
   bot.on('message:location', async (ctx) => {

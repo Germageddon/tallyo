@@ -19,23 +19,23 @@ beforeEach(() => {
   );
 });
 
-function mk(overrides: Partial<ExpenseRow> & Pick<ExpenseRow, 'amountMinor' | 'currency' | 'category'>): ExpenseRow {
+function mk(overrides: Partial<ExpenseRow> & Pick<ExpenseRow, 'amountMinor' | 'currency' | 'description'>): ExpenseRow {
   return {
     id: 1,
     userId: 1,
-    description: '',
+    category: 'Other',
     spentOn: '2026-06-15',
     createdAt: '2026-06-15T00:00:00.000Z',
     ...overrides,
   };
 }
 
-describe('buildReport', () => {
-  it('converts each row to the target currency and sums per category', async () => {
+describe('buildReport (grouped by description)', () => {
+  it('groups by the user\'s wording and converts each row at its date rate', async () => {
     const rows: ExpenseRow[] = [
-      mk({ amountMinor: 1000, currency: 'EUR', category: 'Food', description: 'lunch' }), // 10.00 EUR
-      mk({ amountMinor: 1100, currency: 'USD', category: 'Food', description: 'dinner' }), // 11.00 USD -> 10.00 EUR
-      mk({ amountMinor: 850, currency: 'GBP', category: 'Transport', description: 'taxi' }), // 8.50 GBP -> 10.00 EUR
+      mk({ amountMinor: 1000, currency: 'EUR', description: 'beers and cigs' }), // 10.00 EUR
+      mk({ amountMinor: 1100, currency: 'USD', description: 'Beers and Cigs' }), // 11 USD -> 10 EUR (same group, case-insensitive)
+      mk({ amountMinor: 850, currency: 'GBP', description: 'cab' }), // 8.50 GBP -> 10.00 EUR
     ];
 
     const report = await buildReport(rows, 'EUR', fx);
@@ -43,18 +43,15 @@ describe('buildReport', () => {
     expect(report.targetCurrency).toBe('EUR');
     expect(report.totalMinor).toBe(3000);
 
-    const food = report.byCategory.find((c) => c.category === 'Food');
-    const transport = report.byCategory.find((c) => c.category === 'Transport');
-    expect(food?.amountMinor).toBe(2000); // 1000 EUR + 1000 (from USD)
-    expect(transport?.amountMinor).toBe(1000); // from GBP
-
-    // Sorted by amountMinor descending, Food (2000) before Transport (1000).
-    expect(report.byCategory.map((c) => c.category)).toEqual(['Food', 'Transport']);
-    expect(report.byCategory.map((c) => c.amountMinor)).toEqual([2000, 1000]);
+    const beers = report.byGroup.find((g) => g.label.toLowerCase() === 'beers and cigs');
+    expect(beers?.amountMinor).toBe(2000); // 1000 EUR + 1000 (from USD)
+    // Sorted by amount descending, "beers and cigs" (2000) before "cab" (1000).
+    expect(report.byGroup[0]!.label.toLowerCase()).toBe('beers and cigs');
+    expect(report.byGroup.map((g) => g.amountMinor)).toEqual([2000, 1000]);
   });
 
-  it('omits zero-sum categories and returns an empty report for no rows', async () => {
+  it('returns an empty report for no rows', async () => {
     const empty = await buildReport([], 'EUR', fx);
-    expect(empty).toEqual({ targetCurrency: 'EUR', byCategory: [], totalMinor: 0 });
+    expect(empty).toEqual({ targetCurrency: 'EUR', byGroup: [], totalMinor: 0 });
   });
 });

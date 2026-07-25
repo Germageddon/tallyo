@@ -241,8 +241,8 @@ export class App {
       ];
     }
     const report = await buildReport(rows, user.displayCurrency, this.d.fx);
-    const lines = report.byCategory.map(
-      (c) => `  ${c.category}: ${Money.ofMinor(c.amountMinor, report.targetCurrency).format()}`,
+    const lines = report.byGroup.map(
+      (g) => `  ${g.label}: ${Money.ofMinor(g.amountMinor, report.targetCurrency).format()}`,
     );
     const total = Money.ofMinor(report.totalMinor, report.targetCurrency).format();
     return [
@@ -424,6 +424,6 @@ const MAIN_MENU: Button[][] = [
 
 function summarize(items: LineItem[]): string {
   return items
-    .map((i) => `${i.category} ${Money.ofMinor(i.amountMinor, i.currency).format()} (${i.description})`)
+    .map((i) => `${Money.ofMinor(i.amountMinor, i.currency).format()} — ${i.description}`)
     .join(', ');
 }
