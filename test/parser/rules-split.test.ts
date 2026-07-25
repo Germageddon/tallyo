@@ -25,4 +25,15 @@ describe('parseRules item splitting', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.items).toHaveLength(2);
   });
+
+  it('splits on newlines (one expense per line), not the "and" inside a line', () => {
+    const r = parseRules('grand 25\ndrinks 50\ngas 10\ncigs and gum 5', ctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.items).toHaveLength(4);
+      expect(r.items.map((i) => i.amountMinor)).toEqual([2500, 5000, 1000, 500]);
+      expect(r.items[0]!.description).toBe('grand');
+      expect(r.items[3]!.description).toBe('cigs and gum');
+    }
+  });
 });

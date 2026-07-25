@@ -11,9 +11,9 @@ const FILLER_RE = /\b(on|for|spent|paid)\b/gi;
 /**
  * Deterministic, no-LLM parser.
  *
- * Item boundaries are primarily commas. The word "and" only splits a comma-chunk
- * when that chunk contains 2+ amounts — so "beers and cigs 12" stays a single
- * $12 item, while "coffee 5 and gas 10" becomes two.
+ * Item boundaries are newlines and commas. The word "and" only splits a chunk
+ * when that chunk contains 2+ amounts — so "cigs and gum 5" stays a single
+ * $5 item, while "coffee 5 and gas 10" becomes two.
  */
 export function parseRules(text: string, ctx: ParseCtx): ParseOutcome {
   if (!text.trim()) return { ok: false, reason: 'empty' };
@@ -21,13 +21,14 @@ export function parseRules(text: string, ctx: ParseCtx): ParseOutcome {
   const spentOn = resolveDate(null, ctx.timezone, ctx.now);
   const items: LineItem[] = [];
 
-  const commaChunks = text.split(',').map((c) => c.trim()).filter(Boolean);
-  for (const commaChunk of commaChunks) {
-    const amountCount = (commaChunk.match(AMOUNT_G) ?? []).length;
+  // Primary item boundaries: newlines and commas (people list one expense per line).
+  const itemChunks = text.split(/[\n,]/).map((c) => c.trim()).filter(Boolean);
+  for (const line of itemChunks) {
+    const amountCount = (line.match(AMOUNT_G) ?? []).length;
     const subChunks =
       amountCount >= 2
-        ? commaChunk.split(/\s+and\s+/i).map((c) => c.trim()).filter(Boolean)
-        : [commaChunk];
+        ? line.split(/\s+and\s+/i).map((c) => c.trim()).filter(Boolean)
+        : [line];
 
     for (const chunk of subChunks) {
       const item = parseChunk(chunk, ctx, spentOn);
