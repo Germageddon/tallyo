@@ -147,11 +147,12 @@ describe('App end-to-end', () => {
 
   it('auto-detects timezone from a shared location', async () => {
     const app = makeApp(new Parser('rules', new NullLlmClient()));
-    await app.setLocation(ref, 33.8886, 35.4955); // Beirut
+    await app.setLocation(ref, 33.8886, 35.4955); // Beirut (still works if a location is attached)
     expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('Asia/Beirut');
 
     const tzMenu = await app.action(ref, 'tz');
-    expect(tzMenu.some((r) => r.kind === 'request-location')).toBe(true);
+    expect(tzMenu[0]!.kind).toBe('buttons');
+    expect(textOf(tzMenu[0]!)).toContain('timezone');
   });
 
   it('paginates the full currency list and sets a currency from it', async () => {

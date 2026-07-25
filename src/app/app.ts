@@ -183,14 +183,9 @@ export class App {
       rows.push(CITY_TZS.slice(i, i + 3).map((c) => ({ label: c.label, action: `tz:${c.tz}` })));
     }
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
-    return [
-      {
-        kind: 'buttons',
-        text: '🕐 Pick your timezone — or tap 📍 below to detect it from your location:',
-        rows,
-      },
-      { kind: 'request-location', text: 'Tap to share your location 👇' },
-    ];
+    // (No location-request button: Telegram's request_location is unreliable — Desktop
+    // can't share and some phones error. Attaching a location via 📎 still auto-detects.)
+    return [{ kind: 'buttons', text: '🕐 Pick your timezone:', rows }];
   }
 
   private setTz(userId: number, tz: string): Reply[] {
