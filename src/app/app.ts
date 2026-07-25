@@ -259,7 +259,7 @@ export class App {
       return [
         {
           kind: 'buttons',
-          text: `No expenses ${range.from} … ${range.to}.`,
+          text: `No expenses ${range.from} → ${range.to}.`,
           rows: [[{ label: '⬅️ Menu', action: 'menu' }]],
         },
       ];
@@ -285,8 +285,8 @@ export class App {
     const total = Money.ofMinor(report.totalMinor, report.targetCurrency).format();
     const header =
       pageCount > 1
-        ? `📊 ${range.from} … ${range.to} (${report.targetCurrency}) — page ${p + 1}/${pageCount}`
-        : `📊 ${range.from} … ${range.to} (${report.targetCurrency})`;
+        ? `📊 ${range.from} → ${range.to} (${report.targetCurrency}) — page ${p + 1}/${pageCount}`
+        : `📊 ${range.from} → ${range.to} (${report.targetCurrency})`;
 
     const nav: Button[] = [];
     if (p > 0) nav.push({ label: '◀ Prev', action: `rptpage:${range.from}:${range.to}:${p - 1}` });
@@ -308,7 +308,7 @@ export class App {
       return [
         {
           kind: 'buttons',
-          text: `No expenses ${range.from} … ${range.to}.`,
+          text: `No expenses ${range.from} → ${range.to}.`,
           rows: [[{ label: '⬅️ Menu', action: 'menu' }]],
         },
       ];
@@ -318,7 +318,7 @@ export class App {
         kind: 'document',
         filename: `expenses-${range.from}_${range.to}.csv`,
         content: toCsv(rows),
-        caption: `${rows.length} expenses, ${range.from} … ${range.to}`,
+        caption: `${rows.length} expenses, ${range.from} → ${range.to}`,
       },
     ];
   }
