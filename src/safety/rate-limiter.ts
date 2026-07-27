@@ -1,4 +1,3 @@
-/** In-memory sliding-window rate limiter. No persistence. */
 export class RateLimiter {
   private readonly hits = new Map<string, number[]>();
 

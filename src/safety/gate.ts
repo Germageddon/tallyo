@@ -25,7 +25,7 @@ export class Gate {
   check(ref: Ref, text: string): GateResult {
     const { accessMode, ownerRef, maxInputChars, dailyMsgQuota } = this.config;
 
-    // 1. Length cap — reject before recording any usage.
+    // reject before recording usage
     if (text.length > maxInputChars) {
       return {
         ok: false,
@@ -38,12 +38,10 @@ export class Gate {
       ref.platform === ownerRef.platform &&
       ref.platformUserId === ownerRef.platformUserId;
 
-    // 2. Revoked access (owner is never locked out).
     if (!isOwner && this.access.getStatus(ref.platform, ref.platformUserId) === 'revoked') {
       return { ok: false, reply: 'Your access has been revoked.' };
     }
 
-    // 3. Allowlist mode — non-owners must be explicitly approved.
     if (
       accessMode === 'allowlist' &&
       !isOwner &&
@@ -52,13 +50,11 @@ export class Gate {
       return { ok: false, reply: 'This bot is private. Ask the operator for access.' };
     }
 
-    // 4. Rate limit.
     const key = ref.platform + ':' + ref.platformUserId;
     if (!this.limiter.allow(key)) {
       return { ok: false, reply: 'Slow down a moment and try again.' };
     }
 
-    // 5. Daily quota (owner is exempt).
     const day = this.now().toISOString().slice(0, 10);
     if (!isOwner) {
       const { msgCount } = this.usage.get(ref.platform, ref.platformUserId, day);
@@ -67,7 +63,6 @@ export class Gate {
       }
     }
 
-    // 6. Record the message and admit.
     this.usage.increment(ref.platform, ref.platformUserId, day, 'msg_count');
     return { ok: true };
   }

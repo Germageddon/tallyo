@@ -2,13 +2,7 @@ import type { LlmClient, ParsedItemRaw } from './llm-client';
 import type { ParseCtx } from './types';
 import { CATEGORIES } from '../domain/categories';
 
-/**
- * Real LLM parser via OpenAI's Chat Completions (JSON mode, temperature 0).
- * The user's text is sent as a separate `user` message — never interpolated into
- * the instruction string — so message content cannot rewrite the parser's rules.
- * Not exercised by the hermetic test suite (network); the parser validates,
- * grounds, and category-coerces whatever this returns.
- */
+// user text goes in a separate user message, never the system prompt (untrusted input)
 export class OpenAiLlmClient implements LlmClient {
   constructor(
     private readonly apiKey: string,

@@ -30,8 +30,7 @@ export class Parser {
 
     const items: LineItem[] = [];
     for (const item of validated.data) {
-      // Grounding: every run of digits the model claims must actually be present
-      // in the user's text — guards against hallucinated amounts.
+      // every digit-run the model claims must appear in the user's text (anti-hallucination)
       const digitRuns = item.amount.match(/\d+/g) ?? [];
       for (const run of digitRuns) {
         if (!text.includes(run)) return { ok: false, reason: 'unparseable' };
@@ -55,7 +54,7 @@ export class Parser {
       });
     }
 
-    // LLM output always needs user confirmation.
+    // LLM output always needs user confirmation
     return { ok: true, items, confidence: 'low', source: 'llm' };
   }
 }

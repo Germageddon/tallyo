@@ -1,6 +1,3 @@
-// Pure resolution helpers shared by the rules parser and the LLM path.
-
-/** ~40 common ISO-4217 codes we treat as "known" when sniffing a currency token. */
 export const KNOWN_CURRENCIES = new Set([
   'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'INR', 'AUD', 'CAD',
   'CHF', 'SEK', 'NZD', 'MXN', 'SGD', 'HKD', 'NOK', 'KRW',
@@ -17,12 +14,6 @@ const SYMBOL_TO_CODE: Record<string, string> = {
   '¥': 'JPY',
 };
 
-/**
- * Resolve a currency token to a 3-letter ISO code.
- * - A `$/€/£/¥` symbol → USD/EUR/GBP/JPY.
- * - A known 3-letter code (any case) → the code, uppercased.
- * - Anything else (null, unknown code, junk) → `defaultCurrency`, uppercased.
- */
 export function resolveCurrencyToken(token: string | null, defaultCurrency: string): string {
   const fallback = defaultCurrency.toUpperCase();
   if (!token) return fallback;
@@ -33,13 +24,7 @@ export function resolveCurrencyToken(token: string | null, defaultCurrency: stri
   return fallback;
 }
 
-/**
- * Normalize a raw numeric string to a plain `1234.56`-style decimal.
- * Handles EU `1.234,56` vs US `1,234.56`:
- * - both separators present → the LAST one is the decimal, the other is thousands.
- * - only comma present → decimal when exactly 1-2 digits follow, else thousands.
- * - dot-only / no separators → returned unchanged.
- */
+// handles EU 1.234,56 vs US 1,234.56: with both separators, the last one is the decimal
 export function normalizeAmount(raw: string): string {
   let s = raw.trim();
   const hasComma = s.includes(',');
@@ -47,20 +32,16 @@ export function normalizeAmount(raw: string): string {
 
   if (hasComma && hasDot) {
     if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
-      // comma is the decimal separator
       s = s.replace(/\./g, '').replace(',', '.');
     } else {
-      // dot is the decimal separator
       s = s.replace(/,/g, '');
     }
   } else if (hasComma) {
     const parts = s.split(',');
     const frac = parts[parts.length - 1]!;
     if (parts.length === 2 && frac.length >= 1 && frac.length <= 2) {
-      // treat as decimal: "1,50" -> "1.50"
       s = `${parts[0]!}.${frac}`;
     } else {
-      // treat as thousands: "1,234" / "1,234,567" -> strip
       s = s.replace(/,/g, '');
     }
   }
@@ -69,7 +50,7 @@ export function normalizeAmount(raw: string): string {
 }
 
 function todayInTz(timezone: string, now: Date): string {
-  // en-CA yields YYYY-MM-DD; the timeZone option shifts to the user's local date.
+  // en-CA locale yields YYYY-MM-DD
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
@@ -78,7 +59,7 @@ function todayInTz(timezone: string, now: Date): string {
   }).format(now);
 }
 
-/** Shift a YYYY-MM-DD string by whole days using UTC math (DST-safe). */
+// UTC math keeps day-shifting DST-safe
 function shiftYmd(ymd: string, deltaDays: number): string {
   const [y, m, d] = ymd.split('-');
   const base = Date.UTC(Number(y), Number(m) - 1, Number(d));
@@ -89,11 +70,6 @@ function shiftYmd(ymd: string, deltaDays: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-/**
- * Resolve a date hint to a YYYY-MM-DD in the user's IANA `timezone`.
- * Supports: null/'today' → today; 'yesterday' → -1; 'N days ago'; an explicit
- * YYYY-MM-DD passthrough. Anything else falls back to today.
- */
 export function resolveDate(hint: string | null, timezone: string, now: Date): string {
   const today = todayInTz(timezone, now);
   if (!hint) return today;

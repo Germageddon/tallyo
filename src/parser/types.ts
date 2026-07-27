@@ -1,6 +1,5 @@
 import type { Category } from '../domain/categories';
 
-/** A fully-resolved, validated expense line-item ready to persist. */
 export type LineItem = {
   amountMinor: number;
   currency: string; // ISO-4217, uppercase

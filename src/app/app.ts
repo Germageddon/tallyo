@@ -34,7 +34,6 @@ const HELP =
   '  `spent $20 on groceries`\n\n' +
   'For everything else, tap the buttons (or send /start to open the menu).';
 
-// Timezone picker: a curated set of common cities covering most users.
 const CITY_TZS: { label: string; tz: string }[] = [
   { label: 'London', tz: 'Europe/London' },
   { label: 'Berlin', tz: 'Europe/Berlin' },
@@ -59,7 +58,6 @@ export class App {
 
   // ---- entry points -------------------------------------------------------
 
-  /** A typed message (an expense, or a slash-command). */
   async handle(ref: UserRef, text: string): Promise<Reply[]> {
     if (this.d.gate) {
       const gated = this.d.gate.check(ref, text);
@@ -71,10 +69,8 @@ export class App {
     return this.logExpense(userId, user, trimmed);
   }
 
-  /** A button tap. `data` is the button's action string. */
   async action(ref: UserRef, data: string): Promise<Reply[]> {
-    // Button taps are free navigation (no LLM), so they are NOT gated/rate-limited —
-    // only typed messages (which can hit the LLM) go through the gate.
+    // button taps aren't rate-limited (no LLM)
     const { userId, user } = this.load(ref);
 
     if (data === 'menu') return [this.menu()];
@@ -139,7 +135,6 @@ export class App {
     return [{ kind: 'text', text: 'Cancelled — nothing saved.' }];
   }
 
-  /** A shared location → timezone (auto-detect). */
   async setLocation(ref: UserRef, lat: number, lng: number): Promise<Reply[]> {
     const { userId } = this.load(ref);
     let tz: string;
@@ -222,8 +217,7 @@ export class App {
       rows.push(CITY_TZS.slice(i, i + 3).map((c) => ({ label: c.label, action: `tz:${c.tz}` })));
     }
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
-    // (No location-request button: Telegram's request_location is unreliable — Desktop
-    // can't share and some phones error. Attaching a location via 📎 still auto-detects.)
+    // no location-request button: Telegram's request_location is unreliable
     return [{ kind: 'buttons', text: '🕐 Pick your timezone:', rows }];
   }
 
@@ -424,7 +418,7 @@ export class App {
       case '/currency':
         if (!arg) return [this.currencyMenu()];
         return this.setCurrencyTyped(userId, arg);
-      case '/timezone': // kept for power users; not surfaced in the UI
+      case '/timezone': // not surfaced in the UI
         return this.setTimezone(userId, arg);
       case '/report':
         if (!arg) return [this.periodMenu('report', 'Report — pick a period:')];
@@ -565,7 +559,7 @@ function summarize(items: LineItem[]): string {
     .join('\n');
 }
 
-/** Cap a display string so report pages can't exceed Telegram's message limit. */
+// keep report pages under Telegram's message limit
 function trunc(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }

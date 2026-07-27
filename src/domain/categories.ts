@@ -13,7 +13,6 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
-// Keyword → category. Extend freely; unknown words fall through to 'Other'.
 const KEYWORDS: Record<string, Category> = {
   food: 'Food', lunch: 'Food', dinner: 'Food', breakfast: 'Food', coffee: 'Food',
   restaurant: 'Food', snack: 'Food', meal: 'Food',
@@ -30,7 +29,6 @@ const KEYWORDS: Record<string, Category> = {
   flight: 'Travel', hotel: 'Travel', travel: 'Travel', airbnb: 'Travel',
 };
 
-/** Map free text to a fixed category. Off-list input resolves to 'Other'. */
 export function coerceCategory(text: string): Category {
   const lowered = text.toLowerCase();
   for (const word of lowered.split(/\s+/)) {

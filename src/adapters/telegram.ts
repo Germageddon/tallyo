@@ -42,7 +42,6 @@ async function render(ctx: Context, replies: Reply[]): Promise<void> {
   for (const r of replies) await renderOne(ctx, r);
 }
 
-/** Telegram (grammY) adapter over the platform-agnostic App. Long-polling; outbound only. */
 export async function runTelegram(app: App, token: string): Promise<void> {
   const bot = new Bot(token);
 
@@ -66,7 +65,7 @@ export async function runTelegram(app: App, token: string): Promise<void> {
     const data = ctx.callbackQuery.data;
     await ctx.answerCallbackQuery();
     if (!ref) return;
-    // Reply with fresh messages (not in-place edits) so reports/results stay in history.
+    // reply as fresh messages, not edits
     await render(ctx, await app.action(ref, data));
   });
 

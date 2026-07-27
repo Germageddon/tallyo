@@ -4,8 +4,7 @@ export type UsageField = 'msg_count' | 'llm_calls' | 'tokens';
 
 export type UsageCounts = { msgCount: number; llmCalls: number; tokens: number };
 
-// Whitelist mapping the fixed union to a literal column name so the field can
-// never be interpolated from an arbitrary string (SQL injection guard).
+// union → literal column name (SQL-injection guard)
 const COLUMN: Record<UsageField, UsageField> = {
   msg_count: 'msg_count',
   llm_calls: 'llm_calls',

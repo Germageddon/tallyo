@@ -1,7 +1,4 @@
-// Active ISO 4217 currency codes with their English names.
-// Excludes obsolete/withdrawn codes, precious-metal codes (XAU, XAG, XPT, XPD),
-// fund/bond units (XBA–XBD, XSU, XUA, BOV, CLF, …) and testing codes (XTS, XXX).
-// Sorted alphabetically by `code`. Extend if a needed currency is missing.
+// Active ISO 4217 codes only — no metals, fund units, or test codes.
 
 export type CurrencyInfo = { code: string; name: string };
 
@@ -164,7 +161,6 @@ export const ALL_CURRENCIES: CurrencyInfo[] = [
   { code: 'ZWG', name: 'Zimbabwe Gold' },
 ];
 
-/** Short quick-pick list of the most widely used currencies. */
 export const COMMON_CURRENCIES: string[] = [
   'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'CNY', 'INR',
 ];

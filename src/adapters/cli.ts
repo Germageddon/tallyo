@@ -2,7 +2,6 @@ import { createInterface } from 'node:readline';
 import type { App } from '../app/app';
 import type { Reply, UserRef } from '../app/types';
 
-/** A local stdin/stdout adapter — proves the core is platform-agnostic and gives a demo REPL. */
 export async function runCli(app: App): Promise<void> {
   const ref: UserRef = { platform: 'cli', platformUserId: 'local' };
   const rl = createInterface({ input: process.stdin, output: process.stdout, prompt: '> ' });

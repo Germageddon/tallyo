@@ -44,8 +44,7 @@ async function main(): Promise<void> {
   const capture = new CaptureService(db, pending, expenses);
   const fx = new FxService(new FxRatesRepo(db), new FrankfurterProvider(process.env.FRANKFURTER_BASE_URL));
 
-  // LLM fallback for messy phrasing the rules parser can't confidently handle.
-  // Groq is free and OpenAI-compatible, so it reuses the OpenAI client with a base URL.
+  // Groq is OpenAI-compatible — reuse the client with a base URL.
   const model = process.env.LLM_MODEL;
   let llm: LlmClient;
   if (process.env.OPENAI_API_KEY) {
@@ -72,7 +71,6 @@ async function main(): Promise<void> {
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (token) {
-    // Public bot: enable the access gate.
     const access = new AccessRepo(db);
     const ownerRef = config.OWNER_ID ? { platform: 'telegram', platformUserId: config.OWNER_ID } : undefined;
     for (const id of config.ALLOWLIST.split(',').map((s) => s.trim()).filter(Boolean)) {
@@ -93,7 +91,7 @@ async function main(): Promise<void> {
     const app = new App({ ...baseDeps, gate, access, ownerRef });
     await runTelegram(app, token);
   } else {
-    // Local CLI: the operator's own machine, no access gate.
+    // Local CLI: operator's own machine, no access gate.
     await runCli(new App(baseDeps));
   }
 }

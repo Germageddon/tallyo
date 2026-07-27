@@ -23,7 +23,6 @@ function monthRange(today: string, offset: number): DateRange {
   return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) };
 }
 
-/** The date-range choices offered as buttons (key → label). */
 export const PERIODS: { key: string; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'last-7', label: 'Last 7 days' },
@@ -34,7 +33,6 @@ export const PERIODS: { key: string; label: string }[] = [
   { key: 'all', label: 'All time' },
 ];
 
-/** Resolve a button period key to a concrete range in the user's timezone. */
 export function periodRange(key: string, timezone: string, now: Date): DateRange | null {
   const today = ymdInTz(now, timezone);
   switch (key) {
@@ -61,11 +59,6 @@ export function periodRange(key: string, timezone: string, now: Date): DateRange
   }
 }
 
-/**
- * Parse a typed `/report` / `/export` argument into a date range, in the user's timezone.
- * Supports: '' or 'this month', 'last month', 'today', and 'YYYY-MM-DD YYYY-MM-DD'.
- * Returns null for anything unrecognized.
- */
 export function parseRange(arg: string, timezone: string, now: Date): DateRange | null {
   const today = ymdInTz(now, timezone);
   const a = arg.trim().toLowerCase();

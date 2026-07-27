@@ -1,17 +1,8 @@
 export interface FxProvider {
-  /**
-   * Fetch EUR-based rates for `quotes`, resolved to the latest publication date
-   * on-or-before `date` (ECB has no weekend/holiday rate). `resolvedDate` is the
-   * actual date the returned rates belong to.
-   */
+  // resolves to the latest date on-or-before `date` (ECB skips weekends/holidays)
   fetch(date: string, quotes: string[]): Promise<{ resolvedDate: string; rates: Record<string, string> }>;
 }
 
-/**
- * Offline provider backed by a static table (`{ 'YYYY-MM-DD': { USD: '1.09' } }`).
- * Resolves to the latest table date on-or-before the requested date — the same
- * weekend/holiday behaviour as ECB. Used by tests and by a future fully-offline mode.
- */
 export class StaticFxProvider implements FxProvider {
   constructor(private readonly table: Record<string, Record<string, string>>) {}
 
@@ -31,11 +22,7 @@ export class StaticFxProvider implements FxProvider {
   }
 }
 
-/**
- * Live provider: ECB reference rates via Frankfurter (free, no key).
- * NOTE: confirm the exact query-param names / base URL against current Frankfurter
- * docs when wiring live FX — this path is not exercised by the hermetic test suite.
- */
+// live path, not covered by the hermetic tests — verify param names against Frankfurter docs
 export class FrankfurterProvider implements FxProvider {
   constructor(private readonly baseUrl = 'https://api.frankfurter.app') {}
 

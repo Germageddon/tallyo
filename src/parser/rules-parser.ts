@@ -8,20 +8,13 @@ const AMOUNT_G = /\d+(?:[.,]\d+)?/g;
 const CODE_TOKEN_RE = /\b[A-Za-z]{3}\b/g;
 const FILLER_RE = /\b(on|for|spent|paid)\b/gi;
 
-/**
- * Deterministic, no-LLM parser.
- *
- * Item boundaries are newlines and commas. The word "and" only splits a chunk
- * when that chunk contains 2+ amounts — so "cigs and gum 5" stays a single
- * $5 item, while "coffee 5 and gas 10" becomes two.
- */
+// "and" splits a chunk only when it has 2+ amounts (so "cigs and gum 5" stays one item)
 export function parseRules(text: string, ctx: ParseCtx): ParseOutcome {
   if (!text.trim()) return { ok: false, reason: 'empty' };
 
   const spentOn = resolveDate(null, ctx.timezone, ctx.now);
   const items: LineItem[] = [];
 
-  // Primary item boundaries: newlines and commas (people list one expense per line).
   const itemChunks = text.split(/[\n,]/).map((c) => c.trim()).filter(Boolean);
   for (const line of itemChunks) {
     const amountCount = (line.match(AMOUNT_G) ?? []).length;
@@ -48,8 +41,7 @@ function parseChunk(chunk: string, ctx: ParseCtx, spentOn: string): LineItem | n
 
   const sym = match.groups?.sym ?? null;
 
-  // Currency: a leading symbol wins; otherwise sniff a standalone known 3-letter
-  // code. A description word like "food" (4 letters) can never be mistaken here.
+  // symbol wins; else sniff a known 3-letter code (a 4-letter word like "food" can't match)
   let currency: string;
   let codeToken: string | null = null;
   if (sym) {
@@ -72,7 +64,6 @@ function parseChunk(chunk: string, ctx: ParseCtx, spentOn: string): LineItem | n
     return null;
   }
 
-  // Description = chunk minus the amount, the code token, symbols and filler words.
   let desc = chunk.replace(match[0], ' ');
   if (codeToken) desc = desc.replace(new RegExp(`\\b${codeToken}\\b`, 'i'), ' ');
   desc = desc

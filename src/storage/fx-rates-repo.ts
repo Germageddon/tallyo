@@ -5,7 +5,7 @@ export type FxRate = { rateDate: string; rate: string };
 export class FxRatesRepo {
   constructor(private readonly db: Db) {}
 
-  /** Latest cached rate for `quote` on-or-before `date` (handles weekends/holidays). */
+  // on-or-before: weekends/holidays have no rate
   getOnOrBefore(quote: string, date: string): FxRate | undefined {
     const row = this.db
       .prepare(

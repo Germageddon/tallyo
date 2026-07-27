@@ -4,18 +4,13 @@ import type { FxProvider } from './provider';
 
 export class FxError extends Error {}
 
-/**
- * Resolves EUR-based rates (cache-first, provider on miss) and converts amounts.
- * Historical ECB rates for a past date never change, so a cached conversion is
- * reproducible forever.
- */
+// cache-first: historical ECB rates never change, so a cached conversion stays reproducible
 export class FxService {
   constructor(
     private readonly repo: FxRatesRepo,
     private readonly provider: FxProvider,
   ) {}
 
-  /** EUR->currency rate effective on-or-before `date`, plus the date actually used. */
   async rateFor(currency: string, date: string): Promise<{ rate: string; rateDate: string }> {
     const c = currency.toUpperCase();
     if (c === 'EUR') return { rate: '1', rateDate: date };
@@ -36,14 +31,12 @@ export class FxService {
     to: string,
     date: string,
   ): Promise<{ amountMinor: number; rateDate: string }> {
-    // No conversion (and no rate lookup / network) when currencies match.
     if (from.toUpperCase() === to.toUpperCase()) {
       return { amountMinor, rateDate: date };
     }
     const f = await this.rateFor(from, date);
     const t = await this.rateFor(to, date);
     const converted = convertMinor(amountMinor, from, to, f.rate, t.rate);
-    // Both legs resolve on-or-before `date`; report the later of the two effective dates.
     const rateDate = f.rateDate > t.rateDate ? f.rateDate : t.rateDate;
     return { amountMinor: converted, rateDate };
   }
