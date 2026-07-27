@@ -433,6 +433,10 @@ export class App {
         return this.exportForRange(userId, user, parseRange(arg, user.timezone, this.d.now()));
       case '/forget':
         return this.forget(userId, arg);
+      case '/stats':
+        // owner-only; to everyone else it looks like it doesn't exist
+        if (!this.isOwner(ref)) return [{ kind: 'text', text: `Unknown command.\n\n${HELP}` }];
+        return [this.statsReply()];
       case '/approve':
         return this.ownerAccess(ref, arg, 'approve');
       case '/revoke':
@@ -532,6 +536,31 @@ export class App {
     }
     this.d.access.revoke(ref.platform, target);
     return [{ kind: 'text', text: `Revoked ${target}.` }];
+  }
+
+  // owner-only: how many people are using the bot
+  private statsReply(): Reply {
+    const count = (sql: string, ...params: unknown[]): number =>
+      (this.d.db.prepare(sql).get(...params) as { c: number }).c;
+    const weekAgo = new Date(this.d.now().getTime() - 7 * 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    const users = count('SELECT COUNT(*) AS c FROM users');
+    const loggers = count('SELECT COUNT(DISTINCT user_id) AS c FROM expenses WHERE deleted_at IS NULL');
+    const active = count('SELECT COUNT(DISTINCT platform_user_id) AS c FROM usage WHERE day >= ?', weekAgo);
+    const expenses = count('SELECT COUNT(*) AS c FROM expenses WHERE deleted_at IS NULL');
+
+    return {
+      kind: 'buttons',
+      text:
+        '📈 Tallyo stats\n\n' +
+        `Total users: ${users}\n` +
+        `Logged an expense: ${loggers}\n` +
+        `Active (last 7 days): ${active}\n` +
+        `Expenses logged: ${expenses}`,
+      rows: [[{ label: '⬅️ Menu', action: 'menu' }]],
+    };
   }
 
   // ---- helpers ------------------------------------------------------------

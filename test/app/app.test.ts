@@ -203,6 +203,45 @@ describe('App end-to-end', () => {
     expect(textOf(rep[0]!)).toMatch(/Total: \$(10|20)\.00/);
   });
 
+  it('shows /stats to the owner only, and hides it from everyone else', async () => {
+    // no owner configured → /stats is indistinguishable from an unknown command
+    const noOwner = makeApp(new Parser('rules', new NullLlmClient()));
+    await noOwner.handle(ref, 'coffee 5');
+    const stranger = await noOwner.handle(ref, '/stats');
+    expect(textOf(stranger[0]!)).toContain('Unknown command');
+    expect(textOf(stranger[0]!)).not.toContain('Total users');
+
+    // owner configured → owner sees the numbers, a different user does not
+    const db = openDb(':memory:');
+    migrate(db);
+    const users = new UsersRepo(db, { defaultCurrency: 'USD', defaultTz: 'UTC' });
+    const expenses = new ExpensesRepo(db);
+    const pending = new PendingRepo(db);
+    const capture = new CaptureService(db, pending, expenses);
+    const fx = new FxService(new FxRatesRepo(db), new StaticFxProvider({}));
+    const ownerRef: UserRef = { platform: 'telegram', platformUserId: 'owner-1' };
+    const app = new App({
+      db,
+      users,
+      expenses,
+      capture,
+      parser: new Parser('rules', new NullLlmClient()),
+      fx,
+      now,
+      ownerRef,
+    });
+
+    await app.handle(ownerRef, 'coffee 5');
+    const stats = await app.handle(ownerRef, '/stats');
+    expect(textOf(stats[0]!)).toContain('Total users: 1');
+    expect(textOf(stats[0]!)).toContain('Expenses logged: 1');
+
+    const otherRef: UserRef = { platform: 'telegram', platformUserId: 'someone-else' };
+    const denied = await app.handle(otherRef, '/stats');
+    expect(textOf(denied[0]!)).toContain('Unknown command');
+    expect(textOf(denied[0]!)).not.toContain('Total users');
+  });
+
   it('supports year periods and a custom-range prompt', async () => {
     const app = makeApp(new Parser('rules', new NullLlmClient()));
     await app.handle(ref, 'coffee 5'); // now = 2026-06-15
