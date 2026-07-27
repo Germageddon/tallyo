@@ -153,10 +153,13 @@ export class App {
     return {
       kind: 'buttons',
       text:
-        "👋 Hey! I'm Tallyo — I keep track of what you spend.\n\n" +
-        'Just text me your expenses in plain words:\n' +
-        '   `coffee 5, gas 10`\n\n' +
-        "That's it — I'll log them and total it up. Use the buttons below for reports, currency and settings.",
+        "👋 Hey there! I'm Tallyo, your pocket expense tracker.\n\n" +
+        "Keeping tabs on your spending is dead simple with me. Just text your expenses however you'd normally say them, like:\n" +
+        '   `coffee 5, gas 10`\n' +
+        '   `grabbed lunch, my share was about 15`\n\n' +
+        "I'll pull out the amounts, log everything, and keep a running total for you. No apps to open, no spreadsheets to fill in, no fuss.\n\n" +
+        'Whenever you want to look back, tap Report for a breakdown or Export for a CSV. You can set your currency and timezone in Settings anytime.\n\n' +
+        'Go on, try logging your first expense 👇',
       rows: MAIN_MENU,
     };
   }
