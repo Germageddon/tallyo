@@ -76,7 +76,8 @@ describe('App end-to-end', () => {
     const r = await app.handle(ref, '/export this month');
     expect(r[0]!.kind).toBe('document');
     const doc = r[0] as Extract<Reply, { kind: 'document' }>;
-    expect(doc.content).toContain('date,category,description,amount,currency');
+    expect(doc.content).toContain('date,description,amount,currency');
+    expect(doc.content).toContain('TOTAL');
     expect(doc.filename).toContain('.csv');
   });
 

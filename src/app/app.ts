@@ -109,7 +109,7 @@ export class App {
       return [this.menu()];
     }
     if (data.startsWith('report:')) return this.reportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
-    if (data.startsWith('export:')) return this.exportForRange(userId, this.rangeFromToken(user, data.slice(7)));
+    if (data.startsWith('export:')) return this.exportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
     if (data === 'tz') return this.timezoneMenu();
     if (data.startsWith('tz:')) return this.setTz(userId, data.slice(3));
     if (data.startsWith('cur:page:')) return [this.currencyPage(Number(data.slice(9)))];
@@ -379,7 +379,7 @@ export class App {
     return [{ kind: 'buttons', text: header, rows: btnRows }];
   }
 
-  private async exportForRange(userId: number, range: DateRange | null): Promise<Reply[]> {
+  private async exportForRange(userId: number, user: UserRow, range: DateRange | null): Promise<Reply[]> {
     if (!range) return [this.menu()];
     const rows = this.d.expenses.listByRange(userId, range.from, range.to);
     if (rows.length === 0) {
@@ -391,12 +391,14 @@ export class App {
         },
       ];
     }
+    const report = await buildReport(rows, user.displayCurrency, this.d.fx);
+    const total = Money.ofMinor(report.totalMinor, report.targetCurrency);
     return [
       {
         kind: 'document',
         filename: `expenses-${range.from}_${range.to}.csv`,
-        content: toCsv(rows),
-        caption: `${rows.length} expenses, ${range.from} → ${range.to}`,
+        content: toCsv(rows, { amountMinor: report.totalMinor, currency: report.targetCurrency }),
+        caption: `${rows.length} expenses · total ${total.format()}`,
       },
     ];
   }
@@ -425,7 +427,7 @@ export class App {
         return this.reportForRange(userId, user, parseRange(arg, user.timezone, this.d.now()));
       case '/export':
         if (!arg) return [this.periodMenu('export', 'Export — pick a period:')];
-        return this.exportForRange(userId, parseRange(arg, user.timezone, this.d.now()));
+        return this.exportForRange(userId, user, parseRange(arg, user.timezone, this.d.now()));
       case '/forget':
         return this.forget(userId, arg);
       case '/approve':

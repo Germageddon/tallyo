@@ -2,10 +2,10 @@ import type { ExpenseRow } from '../storage/expenses-repo';
 import type { FxService } from '../fx/fx-service';
 
 export type ReportEntry = {
-  id: number; // the expense row id (for delete)
-  label: string; // the user's own description
-  amountMinor: number; // converted to the target currency
-  at: string; // ISO timestamp the expense was logged (created_at)
+  id: number;
+  label: string;
+  amountMinor: number; // in the target currency
+  at: string; // created_at ISO
 };
 
 export type Report = {
@@ -14,13 +14,7 @@ export type Report = {
   totalMinor: number;
 };
 
-/**
- * Build an itemized spending report in a single target currency — one line per logged
- * expense (the user's own wording), most recent first.
- *
- * Every row is converted to `targetCurrency` at the FX rate effective on that row's own
- * `spentOn` date, so mixed-currency expenses are summed only after conversion.
- */
+// converts each row at its own spent_on rate before summing
 export async function buildReport(
   rows: ExpenseRow[],
   targetCurrency: string,

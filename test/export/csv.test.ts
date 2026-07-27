@@ -6,7 +6,7 @@ function mk(overrides: Partial<ExpenseRow> & Pick<ExpenseRow, 'amountMinor' | 'c
   return {
     id: 1,
     userId: 1,
-    category: 'Food',
+    category: 'Other',
     spentOn: '2026-06-15',
     createdAt: '2026-06-15T00:00:00.000Z',
     ...overrides,
@@ -15,9 +15,9 @@ function mk(overrides: Partial<ExpenseRow> & Pick<ExpenseRow, 'amountMinor' | 'c
 
 describe('minorToDecimalString', () => {
   it('renders each currency with its own exponent', () => {
-    expect(minorToDecimalString(2000, 'USD')).toBe('20.00'); // 2 decimals
-    expect(minorToDecimalString(1000, 'JPY')).toBe('1000'); // 0 decimals
-    expect(minorToDecimalString(1500, 'KWD')).toBe('1.500'); // 3 decimals
+    expect(minorToDecimalString(2000, 'USD')).toBe('20.00');
+    expect(minorToDecimalString(1000, 'JPY')).toBe('1000');
+    expect(minorToDecimalString(1500, 'KWD')).toBe('1.500');
   });
 
   it('pads sub-unit values and handles negatives', () => {
@@ -28,33 +28,32 @@ describe('minorToDecimalString', () => {
 });
 
 describe('toCsv', () => {
-  it('emits the exact header and per-currency amounts, with injection + quoting escapes', () => {
+  it('emits the header (no category) and per-currency amounts, with injection + quoting escapes', () => {
     const rows: ExpenseRow[] = [
-      mk({ description: '=SUM(A1:A2)', amountMinor: 2000, currency: 'USD', category: 'Food' }),
-      mk({ description: 'a,"b', amountMinor: 1000, currency: 'JPY', category: 'Food' }),
-      mk({ description: 'dinar', amountMinor: 1500, currency: 'KWD', category: 'Other' }),
+      mk({ description: '=SUM(A1:A2)', amountMinor: 2000, currency: 'USD' }),
+      mk({ description: 'a,"b', amountMinor: 1000, currency: 'JPY' }),
+      mk({ description: 'dinar', amountMinor: 1500, currency: 'KWD' }),
     ];
 
-    const csv = toCsv(rows);
-    const lines = csv.split('\n');
+    const lines = toCsv(rows).split('\n');
     expect(lines).toHaveLength(4); // header + 3 rows
 
     const [header, injectionLine, quotedLine, kwdLine] = lines as [string, string, string, string];
+    expect(header).toBe('date,description,amount,currency');
 
-    // Header is exactly as specified.
-    expect(header).toBe('date,category,description,amount,currency');
+    // description is now column index 1; leading '=' gets an apostrophe.
+    expect(injectionLine.split(',')[1]).toBe("'=SUM(A1:A2)");
+    expect(injectionLine.endsWith('20.00,USD')).toBe(true);
 
-    // Formula-injection guard: leading '=' gets an apostrophe; no comma so not quoted.
-    const injectionCells = injectionLine.split(',');
-    expect(injectionCells[2]).toBe("'=SUM(A1:A2)");
-    expect(injectionCells[2]!.startsWith("'=")).toBe(true);
-    expect(injectionLine.endsWith('20.00,USD')).toBe(true); // USD -> 2 decimals
-
-    // Comma + double-quote field is wrapped in quotes with the inner quote doubled.
     expect(quotedLine).toContain('"a,""b"');
-    expect(quotedLine.endsWith('1000,JPY')).toBe(true); // JPY -> 0 decimals
+    expect(quotedLine.endsWith('1000,JPY')).toBe(true);
 
-    // KWD -> 3 decimals.
     expect(kwdLine.endsWith('1.500,KWD')).toBe(true);
+  });
+
+  it('appends a TOTAL row when a total is given', () => {
+    const rows: ExpenseRow[] = [mk({ description: 'coffee', amountMinor: 500, currency: 'USD' })];
+    const lines = toCsv(rows, { amountMinor: 3525, currency: 'USD' }).split('\n');
+    expect(lines.at(-1)).toBe(',TOTAL,35.25,USD');
   });
 });
