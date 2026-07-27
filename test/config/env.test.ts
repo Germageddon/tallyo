@@ -4,7 +4,7 @@ import { ConfigError, loadConfig } from '../../src/config/env';
 describe('loadConfig', () => {
   it('applies defaults for an empty env', () => {
     const c = loadConfig({});
-    expect(c.DB_PATH).toBe('./data/tally.sqlite');
+    expect(c.DB_PATH).toBe('./data/tallyo.sqlite');
     expect(c.DEFAULT_CURRENCY).toBe('USD');
     expect(c.DEFAULT_TZ).toBe('UTC');
     expect(c.PARSER_MODE).toBe('auto');

@@ -1,78 +1,71 @@
 # Tallyo
 
-A self-hostable ledger bot that gets **multi-currency money right**: every expense is stored
-in integer minor units and converted at the **actual ECB rate on the day you spent it**, so a
-past-period report is byte-identical every time you run it. You log by texting it in plain
-language — **no API key required** for the common case.
+Track your spending by just **texting a bot**. Log expenses in plain words, get clean reports, in any currency — no apps, no spreadsheets.
 
-- **Correct money.** Per-currency ISO-4217 exponents (JPY has 0 decimals, KWD has 3 — never a
-  blanket ÷100). Exact `HALF_EVEN` conversion through an EUR pivot, rounded once. No floats.
-- **Zero-friction capture.** `coffee 5, gas 10` → two categorized entries. A deterministic
-  rules parser handles the common case with **no LLM call**; an LLM is only a fallback for
-  messy phrasing (and stays behind schema validation + amount-grounding).
-- **Self-hostable & private.** SQLite, one-command Docker, optional local LLM (Ollama). Your
-  financial data never has to leave your machine.
-- **Safe as a public bot.** Default-closed allowlist, per-user rate limits + daily quota, and
-  an input cap — a stranger can't run up your LLM bill.
+## 🤖 Try it now — no setup
 
-## Quickstart (local CLI, no setup)
+**Tallyo is live on Telegram right now, free and open to everyone:**
+
+### 👉 [t.me/TallyoBot](https://t.me/TallyoBot)
+
+Open it, hit **Start**, and just text it what you spent:
+
+```
+coffee 5, gas 10
+groceries 40
+grabbed lunch with friends, my share was about 15
+```
+
+It logs them instantly. Tap **Report** for a breakdown, or **Export** for a CSV. That's the whole thing.
+
+## What it does
+
+- 🗣️ **Plain-language logging** — type however you talk. `coffee 5`, several items at once, or a full sentence.
+- 💱 **Any currency, done right** — 156 currencies, each converted at the *real exchange rate from the day you spent* (not today's).
+- 📊 **Reports & CSV export** — today, this/last month, this/last year, all-time, or a custom date range.
+- ↩️ **Undo & delete** — fix a mistake with one tap, or remove any past entry.
+- 🌍 **Set your currency & timezone** with a couple of taps — no typing.
+
+## How it works
+
+- Simple entries are read by a fast **rules parser** — instant, and completely free (no AI involved).
+- Only messy phrasing (*"my share of dinner was like 40"*) falls back to an **AI**, which is validated so it can never invent an amount.
+- Money is stored as **whole cents** (never floating-point) and converted with historical **European Central Bank** rates, so a report of a past period comes out identical every time.
+
+## Run your own copy
+
+Prefer to self-host and keep your data on your own machine? You can.
+
+**Just try the engine locally (no bot needed):**
 
 ```bash
 npm install
-npm run ci      # typecheck + lint + 105 tests, fully offline
-npm start       # then type:  coffee 5, gas 10   →   /report this month   →   /export this month
+npm start        # a little CLI — type "coffee 5, gas 10", then /report
 ```
 
-## Run it on Telegram
+**Run it as your own Telegram bot:**
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy the token.
-2. `cp .env.example .env` and set:
-   - `TELEGRAM_BOT_TOKEN=…`
-   - `OWNER_ID=<your telegram user id>` (bypasses the allowlist)
-   - `ACCESS_MODE=allowlist` (default) and `ALLOWLIST=<comma-separated telegram ids>`, or
-     `ACCESS_MODE=open` to let anyone in.
-   - Optional: `OPENAI_API_KEY` to enable the LLM fallback for messy phrasing.
-3. `npm start` (or `docker compose up -d`).
+2. `cp .env.example .env` and set `TELEGRAM_BOT_TOKEN`. Optionally add a **free** [Groq](https://console.groq.com) key (`GROQ_API_KEY`) to turn on the AI fallback — OpenAI and local Ollama also work.
+3. `docker compose up -d`
 
-Then message your bot: `spent $20 on groceries`, `/report last month`, `/export`.
+A fresh self-hosted bot is **private by default** (allowlist — only you). Set `ACCESS_MODE=open` in `.env` to let anyone use it (that's how the public [@TallyoBot](https://t.me/TallyoBot) runs). See [`.env.example`](.env.example) for all settings.
 
-## Commands
+## For developers
 
-`/report` · `/export` · `/settings` · `/currency USD` · `/timezone Europe/Berlin` ·
-`/forget` · `/help`. Owner-only: `/approve <id>` · `/revoke <id>`.
-
-## Configuration (env)
-
-| Key | Default | Notes |
-|---|---|---|
-| `DB_PATH` | `./data/tally.sqlite` | SQLite file |
-| `DEFAULT_CURRENCY` / `DEFAULT_TZ` | `USD` / `UTC` | defaults for new users |
-| `PARSER_MODE` | `auto` | `rules` \| `llm` \| `auto` (rules first, LLM on miss) |
-| `TELEGRAM_BOT_TOKEN` | — | set to run on Telegram; unset → local CLI |
-| `ACCESS_MODE` | `allowlist` | `allowlist` \| `open` |
-| `OWNER_ID` / `ALLOWLIST` | — | owner id / comma-separated approved ids |
-| `RATE_LIMIT_PER_MIN` / `DAILY_MSG_QUOTA` / `MAX_INPUT_CHARS` | `10` / `100` / `500` | abuse limits |
-| `OPENAI_API_KEY` | — | enables the LLM fallback parser |
-
-## Architecture
-
-Ports-and-adapters: a platform-agnostic core (money, FX, parser, capture, reporting) with thin
-adapters on top (a local **CLI** and a **Telegram** adapter today; Discord/WhatsApp are a
-small adapter away). See [docs/DESIGN.md](docs/DESIGN.md) for the full design and
-[docs/plans/](docs/plans) for the build plan.
+TypeScript, **ports-and-adapters**: a platform-agnostic core with thin adapters on top. A CLI and a Telegram adapter ship today — Discord and WhatsApp are each just one more adapter, no core changes.
 
 ```
-domain/   money + ISO-4217 exponents, HALF_EVEN EUR-pivot FX, categories
-storage/  SQLite + user_version migrations, user-scoped repositories
-fx/       historical-rate cache + service (Frankfurter / offline provider)
-parser/   rules-first parser + LLM fallback (zod-validated, amount-grounded)
-capture/  pending-capture FSM with idempotent, atomic commit
-safety/   allowlist gate + rate limiter + quotas
-app/      orchestration; adapters/ CLI + Telegram
+domain/   money (integer minor units, ISO-4217 exponents), HALF_EVEN EUR-pivot FX, categories
+storage/  SQLite + versioned migrations, user-scoped repositories
+fx/       historical-rate cache + service (ECB rates via Frankfurter)
+parser/   rules-first + AI fallback (schema-validated, amount-grounded)
+capture/  confirm/commit state machine (idempotent, crash-safe)
+safety/   access gate + rate limits + quotas
+app/      orchestration  ·  adapters/ = CLI + Telegram
 ```
 
-## Development
+- `npm test` — **124 tests**, fully offline (no network)
+- `npm run ci` — typecheck + lint + tests (the gate that runs on every push)
 
-- `npm run test` — Vitest (hermetic, no network)
-- `npm run typecheck` / `npm run lint`
-- `npm run ci` — the gate CI runs on every push
+Full design write-up: [docs/DESIGN.md](docs/DESIGN.md).
