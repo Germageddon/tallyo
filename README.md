@@ -69,3 +69,7 @@ app/      orchestration  ·  adapters/ = CLI + Telegram
 - `npm run ci` — typecheck + lint + tests (the gate that runs on every push)
 
 Full design write-up: [docs/DESIGN.md](docs/DESIGN.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE). Free to use, self-host, and modify.
