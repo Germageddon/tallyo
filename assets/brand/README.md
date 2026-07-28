@@ -4,8 +4,8 @@ The mark is a tally — four strokes and a diagonal slash (the "count of five" g
 
 ## Files
 
-- `tallyo-avatar.svg` — master, scalable. Source of truth for the site and any other surface.
-- `tallyo-avatar-512.png` — 512×512, for the Telegram bot picture (`/setuserpic` in BotFather).
+- `tallyo-avatar.svg` — master, scalable (viewBox only, no fixed size). Source of truth for the site and any other surface.
+- `tallyo-avatar-1024.png` — 1024×1024, for the Telegram bot picture (`/setuserpic` in BotFather). Bigger than the display size on purpose: Telegram re-compresses and rescales avatars, so a larger source survives that with cleaner edges.
 
 ## Palette (Ink)
 
