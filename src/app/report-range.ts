@@ -23,6 +23,19 @@ function monthRange(today: string, offset: number): DateRange {
   return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) };
 }
 
+// whole calendar month from a "YYYY-MM" token
+export function monthRangeOf(ym: string): DateRange | null {
+  const match = ym.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  if (m < 1 || m > 12) return null;
+  return {
+    from: new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10),
+    to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10),
+  };
+}
+
 export const PERIODS: { key: string; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'last-7', label: 'Last 7 days' },
