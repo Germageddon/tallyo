@@ -10,7 +10,8 @@ import type { AccessRepo } from '../storage/access-repo';
 import type { Gate } from '../safety/gate';
 import { buildReport } from '../reporting/report';
 import { toCsv } from '../export/csv';
-import { parseRange, periodRange, PERIODS, type DateRange } from './report-range';
+import { monthRangeOf, parseRange, periodRange, PERIODS, type DateRange } from './report-range';
+import { monthGrid, monthLabel, shiftMonth, MONTH_NAMES, WEEKDAYS } from './calendar';
 import { timezoneFromCoords } from './geo';
 import { ALL_CURRENCIES, COMMON_CURRENCIES } from '../domain/currency-list';
 import type { Button, Reply, UserRef } from './types';
@@ -110,6 +111,36 @@ export class App {
     }
     if (data.startsWith('report:')) return this.reportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
     if (data.startsWith('export:')) return this.exportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
+
+    if (data === 'noop') return [];
+    if (data.startsWith('months:')) {
+      const [kindRaw, yearRaw] = data.slice(7).split(':');
+      const year = Number(yearRaw ?? this.currentMonth(user).slice(0, 4));
+      if (!Number.isInteger(year)) return [this.menu()];
+      return [this.monthsMenu(kindOf(kindRaw), year)];
+    }
+    if (data.startsWith('mon:')) {
+      const [kindRaw, ym] = data.slice(4).split(':');
+      const range = ym ? monthRangeOf(ym) : null;
+      if (!range) return [this.menu()];
+      return kindOf(kindRaw) === 'export'
+        ? this.exportForRange(userId, user, range)
+        : this.reportForRange(userId, user, range);
+    }
+    if (data.startsWith('cal:')) {
+      const [kindRaw, ym, from] = data.slice(4).split(':');
+      return [this.calendarReply(kindOf(kindRaw), ym || this.currentMonth(user), from)];
+    }
+    if (data.startsWith('cpick:')) {
+      const [kindRaw, ymd, from] = data.slice(6).split(':');
+      if (!ymd) return [this.menu()];
+      const kind = kindOf(kindRaw);
+      if (!from) return [this.calendarReply(kind, ymd.slice(0, 7), ymd)];
+      const range = from <= ymd ? { from, to: ymd } : { from: ymd, to: from };
+      return kind === 'export'
+        ? this.exportForRange(userId, user, range)
+        : this.reportForRange(userId, user, range);
+    }
     if (data === 'tz') return this.timezoneMenu();
     if (data.startsWith('tz:')) return this.setTz(userId, data.slice(3));
     if (data.startsWith('cur:page:')) return [this.currencyPage(Number(data.slice(9)))];
@@ -179,9 +210,74 @@ export class App {
         PERIODS.slice(i, i + 2).map((p) => ({ label: p.label, action: `${kind}:${p.key}` })),
       );
     }
-    rows.push([{ label: '📅 Custom range', action: `custom:${kind}` }]);
+    rows.push([{ label: '🗓 By month', action: `months:${kind}` }]);
+    rows.push([{ label: '📅 Custom range', action: `cal:${kind}` }]);
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
     return { kind: 'buttons', text: title, rows };
+  }
+
+  private monthsMenu(kind: 'report' | 'export', year: number): Reply {
+    const rows: Button[][] = [];
+    for (let i = 0; i < 12; i += 3) {
+      rows.push(
+        MONTH_NAMES.slice(i, i + 3).map((name, j) => ({
+          label: name,
+          action: `mon:${kind}:${year}-${String(i + j + 1).padStart(2, '0')}`,
+        })),
+      );
+    }
+    rows.push([
+      { label: `◀ ${year - 1}`, action: `months:${kind}:${year - 1}` },
+      { label: `${year + 1} ▶`, action: `months:${kind}:${year + 1}` },
+    ]);
+    rows.push([
+      { label: '⬅️ Back', action: kind },
+      { label: 'Menu', action: 'menu' },
+    ]);
+    return { kind: 'buttons', text: `Pick a month in ${year}:`, rows };
+  }
+
+  // tap-a-date range picker: first tap sets the start, second sets the end
+  private calendarReply(kind: 'report' | 'export', ym: string, from?: string): Reply {
+    const tail = from ? `:${from}` : '';
+    const rows: Button[][] = [
+      [
+        { label: '◀', action: `cal:${kind}:${shiftMonth(ym, -1)}${tail}` },
+        { label: monthLabel(ym), action: 'noop' },
+        { label: '▶', action: `cal:${kind}:${shiftMonth(ym, 1)}${tail}` },
+      ],
+      WEEKDAYS.map((d) => ({ label: d, action: 'noop' })),
+    ];
+
+    for (const week of monthGrid(ym)) {
+      rows.push(
+        week.map((cell) => {
+          if (!cell) return { label: ' ', action: 'noop' };
+          const day = String(Number(cell.slice(8)));
+          return {
+            label: cell === from ? `·${day}·` : day,
+            action: `cpick:${kind}:${cell}${tail}`,
+          };
+        }),
+      );
+    }
+
+    rows.push(
+      from
+        ? [
+            { label: '↩️ Start over', action: `cal:${kind}:${ym}` },
+            { label: 'Menu', action: 'menu' },
+          ]
+        : [
+            { label: '⬅️ Back', action: kind },
+            { label: 'Menu', action: 'menu' },
+          ],
+    );
+
+    const text = from
+      ? `Start: ${from}\nNow tap the end date.`
+      : 'Tap the start date.';
+    return { kind: 'buttons', text, rows };
   }
 
   private currencyMenu(): Reply {
@@ -425,6 +521,8 @@ export class App {
         return this.setCurrencyTyped(userId, arg);
       case '/timezone': // not surfaced in the UI
         return this.setTimezone(userId, arg);
+      case '/month':
+        return [this.monthsMenu('report', Number(this.currentMonth(user).slice(0, 4)))];
       case '/report':
         if (!arg) return [this.periodMenu('report', 'Report — pick a period:')];
         return this.reportForRange(userId, user, parseRange(arg, user.timezone, this.d.now()));
@@ -565,6 +663,12 @@ export class App {
 
   // ---- helpers ------------------------------------------------------------
 
+  // "YYYY-MM" of today in the user's timezone
+  private currentMonth(user: UserRow): string {
+    const r = periodRange('this-month', user.timezone, this.d.now());
+    return (r ?? { from: '2000-01' }).from.slice(0, 7);
+  }
+
   private load(ref: UserRef): { userId: number; user: UserRow } {
     const userId = this.d.users.upsert(ref.platform, ref.platformUserId);
     return { userId, user: this.d.users.getById(userId)! };
@@ -586,6 +690,10 @@ const MAIN_MENU: Button[][] = [
     { label: '⚙️ Settings', action: 'settings' },
   ],
 ];
+
+function kindOf(raw: string | undefined): 'report' | 'export' {
+  return raw === 'export' ? 'export' : 'report';
+}
 
 function summarize(items: LineItem[]): string {
   return items

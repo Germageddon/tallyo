@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRange } from '../../src/app/report-range';
+import { monthRangeOf, parseRange } from '../../src/app/report-range';
 
 const now = new Date('2026-06-15T12:00:00Z');
 
@@ -24,5 +24,19 @@ describe('parseRange', () => {
   });
   it('unrecognized returns null', () => {
     expect(parseRange('whenever', 'UTC', now)).toBeNull();
+  });
+});
+
+describe('monthRangeOf', () => {
+  it('covers the whole calendar month', () => {
+    expect(monthRangeOf('2026-02')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(monthRangeOf('2024-02')).toEqual({ from: '2024-02-01', to: '2024-02-29' });
+    expect(monthRangeOf('2026-12')).toEqual({ from: '2026-12-01', to: '2026-12-31' });
+  });
+
+  it('rejects malformed or out-of-range months', () => {
+    expect(monthRangeOf('2026-13')).toBeNull();
+    expect(monthRangeOf('2026-00')).toBeNull();
+    expect(monthRangeOf('nope')).toBeNull();
   });
 });

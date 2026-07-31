@@ -33,6 +33,8 @@ function makeApp(parser: Parser): App {
 }
 
 const textOf = (r: Reply): string => ('text' in r ? r.text : '');
+const labelsOf = (r: Reply): string[] =>
+  r.kind === 'buttons' ? r.rows.flat().map((b) => b.label) : [];
 
 describe('App end-to-end', () => {
   it('auto-logs a high-confidence expense and reports the total', async () => {
@@ -201,6 +203,69 @@ describe('App end-to-end', () => {
     await app.action(ref, delBtn!.action);
     const rep = await app.action(ref, 'report:this-month');
     expect(textOf(rep[0]!)).toMatch(/Total: \$(10|20)\.00/);
+  });
+
+  it('picks a month from the Jan-to-Dec grid', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient())); // now = 2026-06-15
+    await app.handle(ref, 'coffee 5');
+
+    const menu = await app.action(ref, 'report');
+    const monthsBtn = (menu[0] as Extract<Reply, { kind: 'buttons' }>).rows
+      .flat()
+      .find((b) => b.action === 'months:report');
+    expect(monthsBtn).toBeDefined();
+
+    const grid = await app.action(ref, 'months:report');
+    expect(textOf(grid[0]!)).toContain('2026');
+    const labels = (grid[0] as Extract<Reply, { kind: 'buttons' }>).rows.flat().map((b) => b.label);
+    expect(labels).toContain('Jan');
+    expect(labels).toContain('Dec');
+
+    // June has the expense, May does not
+    expect(textOf((await app.action(ref, 'mon:report:2026-06'))[0]!)).toContain('Total: $5.00');
+    expect(textOf((await app.action(ref, 'mon:report:2026-05'))[0]!)).toContain('No expenses');
+
+    // year arrows switch the grid
+    expect(textOf((await app.action(ref, 'months:report:2025'))[0]!)).toContain('2025');
+
+    // and it exports too
+    expect((await app.action(ref, 'mon:export:2026-06'))[0]!.kind).toBe('document');
+  });
+
+  it('builds a custom range by tapping two dates on the calendar', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'coffee 5');
+
+    const cal = await app.action(ref, 'cal:report');
+    expect(cal[0]!.kind).toBe('buttons');
+    expect(textOf(cal[0]!)).toContain('Tap the start date');
+    expect(labelsOf(cal[0]!)).toContain('June 2026'); // calendar header
+    expect(labelsOf(cal[0]!)).toContain('15'); // a tappable day
+
+    const afterStart = await app.action(ref, 'cpick:report:2026-06-10');
+    expect(textOf(afterStart[0]!)).toContain('Start: 2026-06-10');
+    expect(textOf(afterStart[0]!)).toContain('end date');
+
+    const report = await app.action(ref, 'cpick:report:2026-06-20:2026-06-10');
+    expect(textOf(report[0]!)).toContain('2026-06-10 → 2026-06-20');
+    expect(textOf(report[0]!)).toContain('Total: $5.00');
+  });
+
+  it('swaps the calendar dates when the end is tapped before the start', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'coffee 5');
+    const report = await app.action(ref, 'cpick:report:2026-06-01:2026-06-20');
+    expect(textOf(report[0]!)).toContain('2026-06-01 → 2026-06-20');
+  });
+
+  it('calendar month arrows move without losing the chosen start date', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    const next = await app.action(ref, 'cal:report:2026-07:2026-06-10');
+    expect(labelsOf(next[0]!)).toContain('July 2026');
+    expect(textOf(next[0]!)).toContain('Start: 2026-06-10');
+
+    // blank calendar padding does nothing at all
+    expect(await app.action(ref, 'noop')).toEqual([]);
   });
 
   it('shows /stats to the owner only, and hides it from everyone else', async () => {
