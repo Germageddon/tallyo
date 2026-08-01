@@ -148,6 +148,7 @@ export class App {
     }
     if (data === 'tz') return this.timezoneMenu();
     if (data.startsWith('tz:')) return this.setTz(userId, data.slice(3));
+    if (data === 'cur:menu') return [this.currencyMenu(true)];
     if (data.startsWith('cur:page:')) return [this.currencyPage(Number(data.slice(9)))];
     if (data.startsWith('cur:')) return this.pickCurrency(userId, data.slice(4));
     if (data.startsWith('confirm:')) return this.confirm(ref, Number(data.slice(8)));
@@ -285,14 +286,14 @@ export class App {
     return { kind: 'buttons', text, rows, edit: true };
   }
 
-  private currencyMenu(): Reply {
+  private currencyMenu(edit = false): Reply {
     const rows: Button[][] = [];
     for (let i = 0; i < COMMON_CURRENCIES.length; i += 3) {
       rows.push(COMMON_CURRENCIES.slice(i, i + 3).map((c) => ({ label: c, action: `cur:${c}` })));
     }
     rows.push([{ label: '🌍 All currencies (A–Z)', action: 'cur:page:0' }]);
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
-    return { kind: 'buttons', text: 'Pick your currency:', rows };
+    return { kind: 'buttons', text: 'Pick your currency:', rows, edit };
   }
 
   private currencyPage(page: number): Reply {
@@ -308,11 +309,19 @@ export class App {
     }
     const nav: Button[] = [];
     if (p > 0) nav.push({ label: '◀ Prev', action: `cur:page:${p - 1}` });
-    nav.push({ label: '⬅️ Menu', action: 'menu' });
     if (p < pageCount - 1) nav.push({ label: 'Next ▶', action: `cur:page:${p + 1}` });
-    rows.push(nav);
+    if (nav.length) rows.push(nav);
+    rows.push([
+      { label: '⬅️ Back', action: 'cur:menu' },
+      { label: 'Menu', action: 'menu' },
+    ]);
 
-    return { kind: 'buttons', text: `All currencies — page ${p + 1}/${pageCount}:`, rows };
+    return {
+      kind: 'buttons',
+      text: `All currencies — page ${p + 1}/${pageCount}:`,
+      rows,
+      edit: true,
+    };
   }
 
   private timezoneMenu(): Reply[] {
@@ -356,7 +365,8 @@ export class App {
     }
     const c = code.toUpperCase();
     this.d.users.updateSettings(userId, { defaultCurrency: c, displayCurrency: c });
-    return [{ kind: 'buttons', text: `Currency set to ${c} ✅`, rows: MAIN_MENU }];
+    // collapse the picker into the confirmation rather than leaving the grid behind
+    return [{ kind: 'buttons', text: `Currency set to ${c} ✅`, rows: MAIN_MENU, edit: true }];
   }
 
   private rangeFromToken(user: UserRow, token: string): DateRange | null {
