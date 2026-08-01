@@ -292,6 +292,28 @@ describe('App end-to-end', () => {
     expect(editsOf((await app.action(ref, 'report:this-month'))[0]!)).toBeFalsy();
   });
 
+  it('edits the currency picker in place while paging A to Z', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+
+    // opening it is a fresh message, paging and back replace the panel
+    expect(editsOf((await app.action(ref, 'currency'))[0]!)).toBeFalsy();
+    expect(editsOf((await app.action(ref, 'cur:page:0'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'cur:page:1'))[0]!)).toBe(true);
+
+    const back = await app.action(ref, 'cur:menu');
+    expect(editsOf(back[0]!)).toBe(true);
+    expect(textOf(back[0]!)).toContain('Pick your currency');
+
+    // picking a code collapses the grid into the confirmation
+    const picked = await app.action(ref, 'cur:EUR');
+    expect(editsOf(picked[0]!)).toBe(true);
+    expect(textOf(picked[0]!)).toContain('EUR');
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).toContain('EUR');
+
+    // "cur:menu" must not be mistaken for a currency code named MENU
+    expect(textOf((await app.action(ref, 'settings'))[0]!)).not.toContain('MENU');
+  });
+
   it('back from a picker returns to the period menu', async () => {
     const app = makeApp(new Parser('rules', new NullLlmClient()));
     const back = (await app.action(ref, 'cal:report'))[0]!;
