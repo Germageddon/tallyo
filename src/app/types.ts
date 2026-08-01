@@ -4,7 +4,8 @@ export type Button = { label: string; action: string };
 
 export type Reply =
   | { kind: 'text'; text: string }
-  | { kind: 'buttons'; text: string; rows: Button[][] }
+  // edit: replace the message the button came from instead of sending a new one
+  | { kind: 'buttons'; text: string; rows: Button[][]; edit?: boolean }
   | { kind: 'confirm'; text: string; captureId: number }
   | { kind: 'request-location'; text: string }
   | { kind: 'document'; filename: string; content: string; caption: string };

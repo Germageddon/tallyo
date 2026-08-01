@@ -35,6 +35,7 @@ function makeApp(parser: Parser): App {
 const textOf = (r: Reply): string => ('text' in r ? r.text : '');
 const labelsOf = (r: Reply): string[] =>
   r.kind === 'buttons' ? r.rows.flat().map((b) => b.label) : [];
+const editsOf = (r: Reply): boolean | undefined => (r.kind === 'buttons' ? r.edit : undefined);
 
 describe('App end-to-end', () => {
   it('auto-logs a high-confidence expense and reports the total', async () => {
@@ -266,6 +267,39 @@ describe('App end-to-end', () => {
 
     // blank calendar padding does nothing at all
     expect(await app.action(ref, 'noop')).toEqual([]);
+  });
+
+  it('edits the picker in place but sends results as new messages', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    await app.handle(ref, 'coffee 5');
+
+    // opening a picker must NOT edit: the Report button also sits on the
+    // "Logged" message, and editing there would destroy it and its Undo
+    expect(editsOf((await app.action(ref, 'report'))[0]!)).toBeFalsy();
+    expect(editsOf((await app.handle(ref, '/report'))[0]!)).toBeFalsy();
+
+    // navigating inside the picker replaces the panel
+    expect(editsOf((await app.action(ref, 'cal:report'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'cal:report:2026-07'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'cpick:report:2026-06-10'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'months:report'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'months:report:2025'))[0]!)).toBe(true);
+    expect(editsOf((await app.action(ref, 'pick:report'))[0]!)).toBe(true);
+
+    // the actual report and export are fresh messages, so they stay in history
+    expect(editsOf((await app.action(ref, 'cpick:report:2026-06-20:2026-06-10'))[0]!)).toBeFalsy();
+    expect(editsOf((await app.action(ref, 'mon:report:2026-06'))[0]!)).toBeFalsy();
+    expect(editsOf((await app.action(ref, 'report:this-month'))[0]!)).toBeFalsy();
+  });
+
+  it('back from a picker returns to the period menu', async () => {
+    const app = makeApp(new Parser('rules', new NullLlmClient()));
+    const back = (await app.action(ref, 'cal:report'))[0]!;
+    const backBtn = (back as Extract<Reply, { kind: 'buttons' }>).rows
+      .flat()
+      .find((b) => b.label.includes('Back'));
+    expect(backBtn?.action).toBe('pick:report');
+    expect(textOf((await app.action(ref, backBtn!.action))[0]!)).toContain('pick a period');
   });
 
   it('shows /stats to the owner only, and hides it from everyone else', async () => {
