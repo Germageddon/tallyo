@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard, InputFile, Keyboard, type Context } from 'grammy';
+import { Bot, GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from 'grammy';
 import type { App } from '../app/app';
 import type { Button, Reply, UserRef } from '../app/types';
 
@@ -42,6 +42,25 @@ async function render(ctx: Context, replies: Reply[]): Promise<void> {
   for (const r of replies) await renderOne(ctx, r);
 }
 
+// picker screens (calendar, month grid) replace the message they came from,
+// so paging through them doesn't fill the chat. Results stay as new messages.
+async function renderCallback(ctx: Context, replies: Reply[]): Promise<void> {
+  const [first, ...rest] = replies;
+  if (first?.kind === 'buttons' && first.edit && ctx.callbackQuery?.message) {
+    try {
+      await ctx.editMessageText(first.text, { reply_markup: kb(first.rows) });
+    } catch (err) {
+      const unchanged =
+        err instanceof GrammyError && err.description.includes('message is not modified');
+      // too old or already gone: fall back to a fresh message
+      if (!unchanged) await renderOne(ctx, first);
+    }
+  } else if (first) {
+    await renderOne(ctx, first);
+  }
+  for (const r of rest) await renderOne(ctx, r);
+}
+
 export async function runTelegram(app: App, token: string): Promise<void> {
   const bot = new Bot(token);
 
@@ -65,8 +84,7 @@ export async function runTelegram(app: App, token: string): Promise<void> {
     const data = ctx.callbackQuery.data;
     await ctx.answerCallbackQuery();
     if (!ref) return;
-    // reply as fresh messages, not edits
-    await render(ctx, await app.action(ref, data));
+    await renderCallback(ctx, await app.action(ref, data));
   });
 
   bot.on('message:location', async (ctx) => {

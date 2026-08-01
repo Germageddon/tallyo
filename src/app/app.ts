@@ -113,6 +113,11 @@ export class App {
     if (data.startsWith('export:')) return this.exportForRange(userId, user, this.rangeFromToken(user, data.slice(7)));
 
     if (data === 'noop') return [];
+    if (data.startsWith('pick:')) {
+      const kind = kindOf(data.slice(5));
+      const title = kind === 'export' ? 'Export — pick a period:' : 'Report — pick a period:';
+      return [this.periodMenu(kind, title, true)];
+    }
     if (data.startsWith('months:')) {
       const [kindRaw, yearRaw] = data.slice(7).split(':');
       const year = Number(yearRaw ?? this.currentMonth(user).slice(0, 4));
@@ -203,7 +208,7 @@ export class App {
     };
   }
 
-  private periodMenu(kind: 'report' | 'export', title: string): Reply {
+  private periodMenu(kind: 'report' | 'export', title: string, edit = false): Reply {
     const rows: Button[][] = [];
     for (let i = 0; i < PERIODS.length; i += 2) {
       rows.push(
@@ -213,7 +218,7 @@ export class App {
     rows.push([{ label: '🗓 By month', action: `months:${kind}` }]);
     rows.push([{ label: '📅 Custom range', action: `cal:${kind}` }]);
     rows.push([{ label: '⬅️ Menu', action: 'menu' }]);
-    return { kind: 'buttons', text: title, rows };
+    return { kind: 'buttons', text: title, rows, edit };
   }
 
   private monthsMenu(kind: 'report' | 'export', year: number): Reply {
@@ -231,10 +236,10 @@ export class App {
       { label: `${year + 1} ▶`, action: `months:${kind}:${year + 1}` },
     ]);
     rows.push([
-      { label: '⬅️ Back', action: kind },
+      { label: '⬅️ Back', action: `pick:${kind}` },
       { label: 'Menu', action: 'menu' },
     ]);
-    return { kind: 'buttons', text: `Pick a month in ${year}:`, rows };
+    return { kind: 'buttons', text: `Pick a month in ${year}:`, rows, edit: true };
   }
 
   // tap-a-date range picker: first tap sets the start, second sets the end
@@ -269,7 +274,7 @@ export class App {
             { label: 'Menu', action: 'menu' },
           ]
         : [
-            { label: '⬅️ Back', action: kind },
+            { label: '⬅️ Back', action: `pick:${kind}` },
             { label: 'Menu', action: 'menu' },
           ],
     );
@@ -277,7 +282,7 @@ export class App {
     const text = from
       ? `Start: ${from}\nNow tap the end date.`
       : 'Tap the start date.';
-    return { kind: 'buttons', text, rows };
+    return { kind: 'buttons', text, rows, edit: true };
   }
 
   private currencyMenu(): Reply {
